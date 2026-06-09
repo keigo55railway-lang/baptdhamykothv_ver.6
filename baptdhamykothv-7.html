@@ -1,0 +1,4750 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>音声プレーヤー</title>
+    <style>
+        /* CSS Variables for Responsive Design */
+        :root {
+            --primary-color: #667eea;
+            --primary-dark: #764ba2;
+            --secondary-color: #f5576c;
+            --bg-light: #f5f5f5;
+            --bg-lighter: #f9f9f9;
+            --border-color: #e0e0e0;
+            --text-color: #333;
+            --text-muted: #666;
+            
+            /* Responsive Font Sizes */
+            --font-h1: 24px;
+            --font-h2: 16px;
+            --font-body: 14px;
+            --font-small: 12px;
+            --font-xs: 11px;
+            
+            /* Responsive Spacing */
+            --spacing-xs: 8px;
+            --spacing-sm: 10px;
+            --spacing-md: 15px;
+            --spacing-lg: 20px;
+            
+            /* Touch Target Size */
+            --touch-target: 44px;
+            
+            /* Container Constraints */
+            --max-container-width: 900px;
+            --grid-min-item-width: 100px;
+        }
+
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        html {
+            -webkit-text-size-adjust: 100%;
+            -ms-text-size-adjust: 100%;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+            display: -webkit-box;
+            display: -webkit-flex;
+            display: flex;
+            -webkit-justify-content: center;
+            justify-content: center;
+            -webkit-align-items: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #CE2029;
+            padding: 20px;
+            font-size: var(--font-body);
+            -webkit-font-smoothing: antialiased;
+            -webkit-text-size-adjust: 100%;
+        }
+        
+        @supports (padding: max(10px, 2vw)) {
+            body {
+                padding: max(10px, 2vw);
+            }
+        }
+
+        .container {
+            background: white;
+            border-radius: 5px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+            width: 100%;
+            max-width: 900px;
+            max-height: 90vh;
+            display: -webkit-box;
+            display: -webkit-flex;
+            display: flex;
+            -webkit-flex-direction: column;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        
+        @supports (border-radius: max(5px, 1.5vw)) {
+            .container {
+                border-radius: max(5px, 1.5vw);
+            }
+        }
+        
+        @supports (max-width: min(95vw, 900px)) {
+            .container {
+                max-width: min(95vw, var(--max-container-width));
+            }
+        }
+
+        .controls-section {
+            flex: 1;
+            padding: var(--spacing-md);
+            border-bottom: 2px solid var(--border-color);
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .timeline-section {
+            flex: 0;
+            padding: var(--spacing-md);
+            background: var(--bg-lighter);
+            border-top: 2px solid var(--border-color);
+        }
+
+        h1 {
+            text-align: center;
+            color: var(--text-color);
+            margin: 0 0 var(--spacing-md) 0;
+            font-size: var(--font-h1);
+            font-weight: 700;
+        }
+
+        h2 {
+            color: #555;
+            font-size: var(--font-h2);
+            margin: var(--spacing-md) 0 var(--spacing-sm) 0;
+            border-bottom: 2px solid var(--primary-color);
+            padding-bottom: 5px;
+            font-weight: 600;
+        }
+
+        .sound-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(max(80px, var(--grid-min-item-width)), 1fr));
+            gap: var(--spacing-sm);
+            margin-bottom: var(--spacing-md);
+            width: 100%;
+        }
+
+        /* BGMグリッドは2列固定 */
+        #bgmGrid {
+            grid-template-columns: repeat(2, 160px);
+        }
+
+        /* SEグリッドは7列固定 */
+        #seGrid {
+            grid-template-columns: repeat(7, 120px);
+        }
+
+        .sound-item {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            min-width: 0;
+            height: 130px;  /* 高を団定 */
+            width: 100%;  /* 幅を100%で親のグリッドセルを埋める */
+        }
+
+        .sound-item input[type="file"] {
+            padding: 5px;
+            border: 1px solid var(--border-color);
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: var(--font-xs);
+            background: white;
+            touch-action: manipulation;
+            height: 32px;  /* ファイル入力の高を団定 */
+            width: 100%;  /* 幅を100%に団定 */
+        }
+
+        .sound-item button {
+            padding: 8px;
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: var(--font-small);
+            transition: background 0.2s, transform 0.1s;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            height: 35px;  /* 高を団定 */
+            width: 100%;  /* 幅を100%に団定 */
+            flex-shrink: 0;  /* 沋を縮もうとしない */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            touch-action: manipulation;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        .sound-item button:hover {
+            background: var(--primary-dark);
+        }
+
+        .sound-item button:active {
+            transform: scale(0.95);
+        }
+
+        /* Timeline */
+        .timeline-container {
+            position: relative;
+            width: 100%;
+            height: 120px;
+            overflow: visible;
+            touch-action: pan-x;
+        }
+
+        .timeline-ruler {
+            position: absolute;
+            top: -50px;
+            left: 0;
+            width: 100%;
+            height: max(25px, 4vh);
+            border-bottom: 2px solid #333;
+            display: flex;
+            align-items: flex-end;
+            user-select: none;
+            will-change: transform;
+            -webkit-user-select: none;
+            z-index: 50;
+        }
+
+        .timeline-ruler-tick {
+            position: absolute;
+            width: 1px;
+            height: 5px;
+            background: #333;
+        }
+
+        .timeline-ruler-label {
+            position: absolute;
+            font-size: clamp(9px, 2vw, 12px);
+            color: #333;
+            transform: translateX(-50%);
+            bottom: -20px;
+            white-space: nowrap;
+            z-index: 100;
+            font-weight: 600;
+        }
+
+        .timeline-canvas {
+            position: absolute;
+            top: 5px;
+            left: 0;
+            width: 100%;
+            height: 30px;
+            background: #ffffff;
+            border: 1px solid var(--border-color);
+            border-radius: 3px;
+            overflow: hidden;
+            will-change: transform;
+            touch-action: pan-x;
+        }
+
+        .audio-bar {
+            position: absolute;
+            height: max(15px, 2vh);
+            border-radius: 2px;
+            display: flex;
+            align-items: center;
+            padding: 0 max(3px, 0.5vw);
+            color: white;
+            font-size: clamp(8px, 1.5vw, 11px);
+            font-weight: bold;
+            overflow: hidden;
+            white-space: nowrap;
+            transition: opacity 0.2s;
+        }
+
+        .audio-bar.bgm {
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            border: 2px solid #667eea;
+            z-index: 1;
+        }
+
+        .audio-bar.se {
+            background: linear-gradient(90deg, #f093fb, #f5576c);
+            border: 2px solid #f5576c;
+            z-index: 2;
+        }
+
+        .audio-bar.playing {
+            box-shadow: 0 0 8px rgba(102, 126, 234, 0.6);
+        }
+
+        audio {
+            display: none;
+        }
+
+        /* BGM Controls */
+        .bgm-controls {
+            background: var(--bg-light);
+            padding: var(--spacing-md);
+            border-radius: 5px;
+            margin-bottom: var(--spacing-md);
+            display: flex;
+            gap: var(--spacing-sm);
+            align-items: center;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .bgm-control-btn {
+            padding: 8px 12px;
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 12px;
+            transition: background 0.2s, transform 0.1s;
+            width: 100%;  /* 幅を100%に団定 */
+            height: 44px;  /* 高を団定 */
+            touch-action: manipulation;
+            -webkit-user-select: none;
+            user-select: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .bgm-control-btn:hover {
+            background: var(--primary-dark);
+        }
+
+        .bgm-control-btn:active {
+            transform: scale(0.98);
+        }
+
+        .bgm-info {
+            width: 100%;  /* 幅を100%に団定 */
+            min-width: unset;  /* min-widthを覢除 */
+            text-align: center;
+            font-size: 12px;  /* 固定サイズ */
+            color: var(--text-muted);
+        }
+
+        /* BGM Section Layout */
+        .bgm-section {
+            display: flex;
+            flex-wrap: wrap;
+            gap: var(--spacing-md);
+            align-items: flex-start;
+            margin-bottom: var(--spacing-md);
+        }
+
+        .bgm-left {
+            flex: 1;
+            min-width: 150px;
+        }
+
+        .bgm-time-panel {
+            flex: 0 1 auto;
+            display: flex;
+            flex-direction: column;
+            gap: var(--spacing-md);
+            padding: var(--spacing-md);
+            background: var(--bg-light);
+            border-radius: 5px;
+            width: 200px;  /* min-widthをwidthに変更し団定 */
+            align-items: stretch;
+        }
+
+        .bgm-time-title {
+            font-weight: bold;
+            text-align: center;
+            font-size: 14px;  /* 固定サイズ */
+            color: var(--text-color);
+        }
+
+        .time-input-group {
+            display: flex;
+            gap: var(--spacing-sm);
+            align-items: center;
+            justify-content: center;
+        }
+
+        .time-input-group label {
+            font-size: 12px;  /* 固定サイズ */
+            font-weight: 600;
+            color: var(--text-muted);
+        }
+
+        .time-input-group input {
+            width: 60px;
+            height: 32px;  /* 高を団定 */
+            padding: 8px;
+            font-size: 12px;  /* 固定サイズ */
+            border: 2px solid var(--border-color);
+            border-radius: 4px;
+            text-align: center;
+            touch-action: manipulation;
+            -webkit-appearance: none;
+            appearance: none;
+        }
+
+        .time-input-group input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 4px rgba(102, 126, 234, 0.3);
+        }
+
+        /* Remove number input spinner for Chrome, Safari */
+        .time-input-group input[type="number"]::-webkit-outer-spin-button,
+        .time-input-group input[type="number"]::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+
+        /* Remove spinner for Firefox */
+        .time-input-group input[type="number"] {
+            -moz-appearance: textfield;
+            appearance: textfield;
+        }
+
+        .slider-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .sliders-horizontal {
+            display: flex;
+            gap: var(--spacing-md);
+            flex-wrap: wrap;
+            justify-content: space-between;
+        }
+
+        .sliders-horizontal .slider-group {
+            width: 120px;  /* flex: 1 を width に変更し団定 */
+        }
+
+        .slider-group label {
+            font-size: 12px;  /* 固定サイズ */
+            font-weight: bold;
+            color: var(--text-color);
+            text-align: center;
+        }
+
+        .slider-group input[type="range"] {
+            width: 100%;
+            height: 4px;  /* 固定高 */
+            border-radius: 3px;
+            background: linear-gradient(to right, #ddd, var(--primary-color));
+            outline: none;
+            -webkit-appearance: none;
+            appearance: none;
+            cursor: pointer;
+            touch-action: manipulation;
+            padding: 8px 0;
+        }
+
+        .slider-group input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 14px;  /* 固定幅 */
+            height: 14px;  /* 固定高 */
+            border-radius: 50%;
+            background: var(--primary-color);
+            cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            transition: box-shadow 0.2s;
+        }
+
+        .slider-group input[type="range"]::-webkit-slider-thumb:active {
+            box-shadow: 0 0 8px rgba(102, 126, 234, 0.6);
+        }
+
+        .slider-group input[type="range"]::-moz-range-thumb {
+            width: 14px;  /* 固定幅 */
+            height: 14px;  /* 固定高 */
+            border-radius: 50%;
+            background: var(--primary-color);
+            cursor: pointer;
+            border: none;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            transition: box-shadow 0.2s;
+        }
+
+        .slider-group input[type="range"]::-moz-range-thumb:active {
+            box-shadow: 0 0 8px rgba(102, 126, 234, 0.6);
+        }
+
+        .slider-value {
+            font-size: 11px;  /* 固定サイズ */
+            color: var(--text-muted);
+            text-align: center;
+        }
+
+        .bgm-right {
+            flex: 0 1 auto;
+        }
+
+        .bgm-right .bgm-controls {
+            flex-direction: column;
+            background: var(--bg-light);
+            padding: var(--spacing-md);
+            border-radius: 5px;
+            margin-bottom: 0;
+            width: 200px;  /* min-widthをwidthに変更し団定 */
+            font-size: 12px;  /* 固定サイズ */
+            color: var(--text-color);
+        }
+
+        /* Progress Bar */
+        .timeline-progress {
+            position: absolute;
+            top: -30px;
+            left: 50%;
+            width: 2px;
+            height: calc(100% + 30px);
+            background: #ff6b6b;
+            z-index: 10;
+            pointer-events: none;
+            box-shadow: 0 0 5px rgba(255, 107, 107, 0.8);
+            transform: translateX(-50%);
+        }
+
+        /* Landscape Mode Adjustment */
+        @media (orientation: landscape) and (max-height: 600px) {
+            .container {
+                max-height: 95vh;
+            }
+
+            .controls-section {
+                padding: var(--spacing-sm);
+            }
+
+            .timeline-section {
+                padding: var(--spacing-sm);
+            }
+
+            .timeline-container {
+                height: 100px;
+            }
+
+            h1 {
+                font-size: 18px;
+                margin-bottom: var(--spacing-sm);
+            }
+
+            h2 {
+                font-size: 14px;
+                margin: var(--spacing-sm) 0 5px 0;
+            }
+        }
+
+        /* Tablet & iPad (768px - 1024px) */
+        @media (min-width: 768px) {
+            :root {
+                --font-h1: 28px;
+                --font-h2: 18px;
+                --font-body: 15px;
+                --font-small: 13px;
+                --grid-min-item-width: 120px;
+                --spacing-lg: 25px;
+            }
+
+            body {
+                padding: 3vw;
+            }
+
+            .container {
+                max-width: 85vw;
+            }
+
+            .controls-section {
+                padding: var(--spacing-lg);
+            }
+
+            .timeline-section {
+                padding: var(--spacing-lg);
+            }
+
+            .sound-grid {
+                grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            }
+
+            .bgm-section {
+                gap: var(--spacing-lg);
+            }
+
+            .bgm-center,
+            .bgm-right .bgm-controls {
+                min-width: 220px;
+            }
+        }
+
+        /* Desktop (1025px+) */
+        @media (min-width: 1025px) {
+            :root {
+                --font-h1: 32px;
+                --font-h2: 20px;
+                --font-body: 16px;
+                --font-small: 14px;
+                --grid-min-item-width: 130px;
+                --spacing-lg: 30px;
+            }
+
+            .sound-grid {
+                grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+            }
+        }
+
+        /* Small Mobile Phones (< 360px) */
+        @media (max-width: 359px) {
+            :root {
+                --font-h1: 16px;
+                --font-h2: 13px;
+                --font-body: 12px;
+                --font-small: 11px;
+                --grid-min-item-width: 70px;
+                --spacing-md: 10px;
+            }
+
+            .sound-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            #bgmGrid {
+                grid-template-columns: repeat(2, 90px);  /* BGM幅を縮小 */
+            }
+
+            #seGrid {
+                grid-template-columns: repeat(2, 80px);  /* SE列を2に */
+            }
+
+            .sound-item {
+                height: 110px;
+            }
+
+            .bgm-section {
+                flex-direction: column;
+            }
+
+            .bgm-center,
+            .bgm-right {
+                width: 100%;
+            }
+
+            .bgm-time-panel {
+                width: 100%;
+            }
+
+            .bgm-right .bgm-controls {
+                width: 100%;
+            }
+
+            .se-controls-wrapper {
+                width: 100%;
+            }
+        }
+
+        /* Medium Mobile Phones (360px - 480px) */
+        @media (min-width: 360px) and (max-width: 480px) {
+            :root {
+                --font-h1: 18px;
+                --font-h2: 14px;
+                --font-body: 13px;
+                --font-small: 12px;
+                --grid-min-item-width: 80px;
+            }
+
+            .sound-grid {
+                grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+            }
+
+            #bgmGrid {
+                grid-template-columns: repeat(2, 100px);  /* BGM幅を調整 */
+            }
+
+            #seGrid {
+                grid-template-columns: repeat(2, 90px);  /* SE列を2に */
+            }
+
+            .sound-item {
+                height: 115px;
+            }
+
+            .bgm-section {
+                flex-direction: column;
+            }
+
+            .bgm-center,
+            .bgm-right {
+                width: 100%;
+            }
+
+            .bgm-time-panel {
+                width: 100%;
+            }
+
+            .bgm-right .bgm-controls {
+                width: 100%;
+            }
+
+            .se-controls-wrapper {
+                width: 100%;
+            }
+        }
+
+        /* Large Mobile Phones & Small Tablets (481px - 768px) */
+        @media (min-width: 481px) and (max-width: 767px) {
+            :root {
+                --font-h1: 22px;
+                --font-h2: 16px;
+                --font-body: 14px;
+                --font-small: 12px;
+                --grid-min-item-width: 100px;
+            }
+
+            .sound-grid {
+                grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+            }
+
+            #bgmGrid {
+                grid-template-columns: repeat(2, 130px);  /* タブレット向けに調整 */
+            }
+
+            #seGrid {
+                grid-template-columns: repeat(3, 105px);  /* SE列を3に調整 */
+            }
+
+            .sound-item {
+                height: 120px;
+            }
+
+            .bgm-section {
+                flex-direction: row;  /* 横並びを保持 */
+                flex-wrap: wrap;
+            }
+
+            .bgm-left {
+                flex: 1;
+                min-width: 300px;
+            }
+
+            .bgm-center,
+            .bgm-right {
+                width: auto;
+                flex: 0 1 auto;
+            }
+
+            .bgm-time-panel {
+                width: 160px;
+            }
+
+            .bgm-right .bgm-controls {
+                width: 160px;
+            }
+
+            .se-controls-wrapper {
+                width: 160px;
+            }
+        }
+
+        /* Tablet (768px - 1024px) */
+        @media (min-width: 768px) and (max-width: 1024px) {
+            #bgmGrid {
+                grid-template-columns: repeat(2, 150px);
+            }
+
+            #seGrid {
+                grid-template-columns: repeat(5, 115px);  /* SE列を5に調整 */
+            }
+
+            .sound-item {
+                height: 125px;
+            }
+
+            .bgm-time-panel {
+                width: 190px;
+            }
+
+            .bgm-right .bgm-controls {
+                width: 190px;
+            }
+
+            .se-controls-wrapper {
+                width: 190px;
+            }
+        }
+
+        /* Large Tablet & Desktop (1025px+) */
+        @media (min-width: 1025px) {
+            #bgmGrid {
+                grid-template-columns: repeat(2, 160px);
+            }
+
+            #seGrid {
+                grid-template-columns: repeat(7, 120px);
+            }
+
+            .sound-item {
+                height: 130px;
+            }
+
+            .bgm-time-panel {
+                width: 200px;
+            }
+
+            .bgm-right .bgm-controls {
+                width: 200px;
+            }
+
+            .se-controls-wrapper {
+                width: 200px;
+            }
+        }
+
+        /* iPadOS & iOS specific adjustments */
+        @supports (-webkit-touch-callout: none) {
+            input[type="range"] {
+                -webkit-appearance: slider-horizontal;
+                appearance: slider-horizontal;
+            }
+
+            button,
+            input[type="button"],
+            input[type="file"] {
+                -webkit-appearance: none;
+                appearance: none;
+                border-radius: 5px;
+            }
+        }
+
+        /* High DPI Display Support */
+        @media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+            .audio-bar,
+            .bgm-control-btn,
+            .sound-item button {
+                border-width: 1px;
+            }
+        }
+
+        .memo-button {
+            font-size: clamp(10px, 2vw, 12px);
+            padding: max(4px, 1vmin);
+            background: #999;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            margin-top: 3px;
+            width: 100%;
+            transition: background 0.2s;
+            touch-action: manipulation;
+            -webkit-user-select: none;
+            user-select: none;
+            min-height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .memo-button:hover {
+            background: #777;
+        }
+
+        .memo-button:active {
+            transform: scale(0.95);
+        }
+
+        /* SE Checkbox Container */
+        .se-checkbox-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-top: 3px;
+            width: 100%;
+            font-size: clamp(10px, 2vw, 12px);
+        }
+
+        .se-checkbox-container label {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            cursor: pointer;
+            user-select: none;
+            -webkit-user-select: none;
+            margin: 0;
+        }
+
+        .se-checkbox-container input[type="checkbox"] {
+            width: 14px;
+            height: 14px;
+            cursor: pointer;
+            accent-color: var(--primary-color);
+        }
+
+        /* BGM Title Text */
+        .bgm-title {
+            font-weight: bold;
+            margin-bottom: 10px;
+            text-align: center;
+            font-size: clamp(13px, 2.5vw, 15px);
+            color: var(--text-color);
+        }
+
+        .se-title {
+            font-weight: bold;
+            text-align: center;
+            font-size: clamp(13px, 2.5vw, 15px);
+            color: var(--text-color);
+        }
+
+        /* SE Section */
+        .se-section {
+            display: flex;
+            gap: var(--spacing-md);
+            align-items: flex-start;
+            margin-bottom: var(--spacing-md);
+            flex-wrap: wrap;
+        }
+
+        .se-left {
+            flex: 1;
+            min-width: 150px;
+        }
+
+        .se-controls-wrapper {
+            flex: 0 1 auto;
+            display: flex;
+            flex-direction: column;
+            gap: var(--spacing-md);
+            padding: var(--spacing-md);
+            background: var(--bg-light);
+            border-radius: 5px;
+            width: 200px;  /* min-widthをwidthに変更し団定 */
+        }
+
+        .stop-all-wrapper {
+            display: none;
+        }
+
+        #stopAllSeBtn {
+            padding: 8px 12px;
+            background-color: #f44336;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 12px;  /* 固定サイズ */
+            transition: background-color 0.2s, transform 0.1s;
+            width: 100%;
+            height: 44px;  /* 高を団定 */
+            touch-action: manipulation;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        #stopAllSeBtn:hover {
+            background-color: #da190b;
+        }
+
+        #pauseBtn {
+            display: none;
+        }
+
+        #loadFileInput {
+            display: none;
+        }
+        @media (prefers-reduced-motion: reduce) {
+            * {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
+
+        /* Paging & Control Headers */
+        .paging-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: max(8px, 2vmin);
+            background: var(--bg-light);
+            border-bottom: 2px solid var(--border-color);
+            gap: var(--spacing-sm);
+            flex-wrap: wrap;
+        }
+
+        .paging-info {
+            font-weight: bold;
+            font-size: clamp(12px, 2.5vw, 15px);
+            color: var(--text-color);
+            white-space: nowrap;
+        }
+
+        .paging-buttons {
+            display: flex;
+            gap: var(--spacing-sm);
+        }
+
+        .paging-btn {
+            padding: max(8px, 2vmin) max(12px, 2.5vw);
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: clamp(12px, 2.5vw, 16px);
+            font-weight: bold;
+            transition: background 0.2s, transform 0.1s;
+            min-width: 50px;
+            min-height: var(--touch-target);
+            touch-action: manipulation;
+            -webkit-user-select: none;
+            user-select: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .paging-btn:hover {
+            background: var(--primary-dark);
+        }
+
+        .paging-btn:active {
+            transform: scale(0.95);
+        }
+
+        .paging-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
+        .control-btn {
+            padding: max(8px, 2vmin) max(12px, 2.5vw);
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: clamp(12px, 2vw, 15px);
+            font-weight: 600;
+            transition: background-color 0.2s, transform 0.1s;
+            min-width: 80px;
+            min-height: var(--touch-target);
+            touch-action: manipulation;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        .control-btn:hover {
+            background-color: var(--primary-dark);
+        }
+
+        .control-btn:active {
+            transform: scale(0.98);
+        }
+
+        #saveBtn {
+            background-color: #4CAF50;
+        }
+
+        #saveBtn:hover {
+            background-color: #45a049;
+        }
+
+        #loadBtn {
+            background-color: #2196F3;
+        }
+
+        #loadBtn:hover {
+            background-color: #0b7dda;
+        }
+
+        /* Modal */
+        #memoModal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+            padding: var(--spacing-md);
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        #memoModal.show {
+            display: flex;
+        }
+
+        .memo-dialog {
+            background: white;
+            padding: max(15px, 2.5vw);
+            border-radius: max(6px, 1.5vw);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+            width: 100%;
+            max-width: 500px;
+            max-height: 90vh;
+            display: flex;
+            flex-direction: column;
+            gap: var(--spacing-md);
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        #memoTitle {
+            margin: 0;
+            font-size: clamp(16px, 4vw, 20px);
+            color: var(--text-color);
+        }
+
+        #memoText {
+            width: 100%;
+            height: max(120px, 30vh);
+            padding: var(--spacing-sm);
+            border: 2px solid var(--border-color);
+            border-radius: 4px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+            font-size: clamp(12px, 2vw, 14px);
+            resize: vertical;
+            touch-action: manipulation;
+        }
+
+        #memoText:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 4px rgba(102, 126, 234, 0.3);
+        }
+
+        .memo-buttons {
+            display: flex;
+            gap: var(--spacing-sm);
+            justify-content: flex-end;
+            flex-wrap: wrap;
+        }
+
+        .memo-btn {
+            padding: max(8px, 2vmin) max(12px, 2.5vw);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: clamp(12px, 2vw, 14px);
+            font-weight: 600;
+            transition: background-color 0.2s, transform 0.1s;
+            min-width: 80px;
+            min-height: var(--touch-target);
+            touch-action: manipulation;
+            -webkit-user-select: none;
+            user-select: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #memoSaveBtn {
+            background-color: #4CAF50;
+        }
+
+        #memoSaveBtn:hover {
+            background-color: #45a049;
+        }
+
+        #memoCancelBtn {
+            background-color: #f44336;
+        }
+
+        #memoCancelBtn:hover {
+            background-color: #da190b;
+        }
+
+        /* Media Query for Modal on Small Screens */
+        @media (max-width: 480px) {
+            #memoModal {
+                padding: var(--spacing-sm);
+            }
+
+            .memo-dialog {
+                max-width: 100%;
+                max-height: 95vh;
+            }
+
+            .memo-buttons {
+                justify-content: center;
+            }
+        }
+    </style>
+    <div id="memoModal">
+        <div class="memo-dialog">
+            <h3 id="memoTitle">メモを編集</h3>
+            <textarea id="memoText"></textarea>
+            <div class="memo-buttons">
+                <button id="memoSaveBtn" class="memo-btn">保存</button>
+                <button id="memoCancelBtn" class="memo-btn">キャンセル</button>
+            </div>
+        </div>
+    </div>
+</head>
+<body>
+    <div class="container">
+        <!-- ページングヘッダー -->
+        <div class="paging-header">
+            <div class="paging-buttons">
+                <button id="leftArrow" class="paging-btn">← 前</button>
+            </div>
+            <div class="paging-buttons">
+                <button id="loadBtn" class="control-btn">📂 設定を読み込み</button>
+            </div>
+            <div class="paging-info">
+                ページ <span id="currentPage">1</span> / <span id="maxPages">20</span>
+            </div>
+            <div class="paging-buttons">
+                <button id="saveBtn" class="control-btn">💾 設定を保存</button>
+            </div>
+            <div class="paging-buttons">
+                <button id="rightArrow" class="paging-btn">次 →</button>
+            </div>
+            <input type="file" id="loadFileInput" accept=".json,application/json" style="display: none;">
+            <!-- GitHub Pages対応：nwsaveas属性は削除（ブラウザで非標準・利用不可）-->
+            <input type="file" id="saveFileInput" style="display: none;" accept=".json,application/json">
+        </div>
+
+        <div class="controls-section">
+            <h1>🎵 音声プレーヤー</h1>
+            
+            <!-- BGM セクション -->
+            <h2>🎼 BGM</h2>
+            <div class="bgm-section">
+                <div class="bgm-left">
+                    <div class="sound-grid" id="bgmGrid"></div>
+                </div>
+                <div class="bgm-time-panel">
+                    <div class="bgm-time-title">⏱️ 再生時間指定</div>
+                    <div class="time-input-group">
+                        <label>分</label>
+                        <input type="number" id="bgmStartMinutes" min="0" max="999" value="0">
+                    </div>
+                    <div class="time-input-group">
+                        <label>秒</label>
+                        <input type="number" id="bgmStartSeconds" min="0" max="59" value="0">
+                    </div>
+                </div>
+                <div class="bgm-center">
+                    <div class="bgm-title">🎼 BGM 制御</div>
+                    <div class="sliders-horizontal">
+                        <div class="slider-group">
+                            <label>🔊 音量</label>
+                            <input type="range" id="bgmVolumeSlider" min="0" max="200" value="100">
+                            <div class="slider-value"><span id="bgmVolumeValue">100</span>%</div>
+                        </div>
+                        <div class="slider-group">
+                            <label>🎵 音程</label>
+                            <input type="range" id="bgmPitchSlider" min="50" max="200" value="100">
+                            <div class="slider-value"><span id="bgmPitchValue">100</span>%</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="bgm-right">
+                    <div class="bgm-controls" id="bgmControls">
+                        <button class="bgm-control-btn" id="playBtn">▶ 再生</button>
+                        <button class="bgm-control-btn" id="pauseBtn">⏸ 一時停止</button>
+                        <button class="bgm-control-btn" id="stopBtn">⏹ 停止</button>
+                        <div class="bgm-info" id="bgmInfo">BGM: 準備中...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 効果音セクション -->
+            <h2>🔊 効果音</h2>
+            <div class="se-section">
+                <div class="se-left">
+                    <div class="sound-grid" id="seGrid"></div>
+                </div>
+                <div class="se-controls-wrapper">
+                    <div class="se-title">🔊 効果音 制御</div>
+                    <div class="slider-group">
+                        <label>🔊 音量</label>
+                        <input type="range" id="seVolumeSlider" min="0" max="200" value="100">
+                        <div class="slider-value"><span id="seVolumeValue">100</span>%</div>
+                    </div>
+                    <div class="slider-group">
+                        <label>🎵 音程</label>
+                        <input type="range" id="sePitchSlider" min="50" max="200" value="100">
+                        <div class="slider-value"><span id="sePitchValue">100</span>%</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="timeline-section">
+            <div class="timeline-container">
+                <div class="timeline-ruler" id="timelineRuler"></div>
+                <div class="timeline-progress" id="timelineProgress"></div>
+                <div class="timeline-canvas" id="timelineCanvas"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 隠されたaudio要素 -->
+    <div id="audioContainer"></div>
+
+    <!-- 診断パネル（デバッグ用、GitHub Pages互換性確認） -->
+    <div id="diagnosticsPanel" style="
+        position: fixed;
+        bottom: 10px;
+        right: 10px;
+        background: rgba(0, 0, 0, 0.9);
+        color: #0f0;
+        font-family: monospace;
+        font-size: 11px;
+        padding: 10px;
+        border-radius: 5px;
+        max-width: 300px;
+        max-height: 200px;
+        overflow-y: auto;
+        z-index: 9999;
+        display: none;
+        white-space: pre-wrap;
+        word-break: break-all;
+    ">
+        <div><strong>🔧 診断情報</strong></div>
+        <div id="diagBrowserInfo">ブラウザ: 読み込み中...</div>
+        <div id="diagAudioAPI">Audio API: 確認中...</div>
+        <div id="diagPrivateMode">プライベートモード: 確認中...</div>
+        <div id="diagFileAPI">File API: 確認中...</div>
+        <div id="diagTimestamp">更新時刻: -</div>
+        <div style="margin-top: 5px; border-top: 1px solid #0f0; padding-top: 5px;">
+            <span style="cursor: pointer; color: #0ff;" onclick="document.getElementById('detailDiagnostics').style.display = document.getElementById('detailDiagnostics').style.display === 'none' ? 'block' : 'none'">
+                ▼ 詳細表示
+            </span>
+        </div>
+    </div>
+
+    <!-- 詳細診断パネル -->
+    <div id="detailDiagnostics" style="
+        position: fixed;
+        bottom: 220px;
+        right: 10px;
+        background: rgba(0, 0, 0, 0.95);
+        color: #0f0;
+        font-family: monospace;
+        font-size: 10px;
+        padding: 10px;
+        border-radius: 5px;
+        max-width: 400px;
+        max-height: 300px;
+        overflow-y: auto;
+        z-index: 9998;
+        display: none;
+        white-space: pre-wrap;
+        word-break: break-all;
+        border: 2px solid #0f0;
+    ">
+        <div><strong>📋 詳細診断 (Ctrl+Shift+D 再度押下で詳細パネル表示)</strong></div>
+        <div id="detailDiagnosticsContent">読み込み中...</div>
+    </div>
+
+    <!-- ログパネル -->
+    <div id="debugLogPanel" style="
+        position: fixed;
+        top: 10px;
+        left: 10px;
+        background: rgba(0, 0, 0, 0.9);
+        color: #0f0;
+        font-family: monospace;
+        font-size: 10px;
+        padding: 10px;
+        border-radius: 5px;
+        max-width: 400px;
+        max-height: 300px;
+        overflow-y: auto;
+        z-index: 9997;
+        display: none;
+        white-space: pre-wrap;
+        word-break: break-all;
+        border: 1px solid #0f0;
+    ">
+        <div><strong>📝 ログパネル (最新100件)</strong></div>
+        <div style="font-size: 9px; margin-top: 5px; border-top: 1px solid #0f0; padding-top: 5px;"></div>
+    </div>
+
+    <!-- エラーパネル -->
+    <div id="debugErrorPanel" style="
+        position: fixed;
+        top: 10px;
+        right: 10px;
+        background: rgba(139, 0, 0, 0.95);
+        color: #ff6b6b;
+        font-family: monospace;
+        font-size: 10px;
+        padding: 10px;
+        border-radius: 5px;
+        max-width: 400px;
+        max-height: 300px;
+        overflow-y: auto;
+        z-index: 9996;
+        display: none;
+        white-space: pre-wrap;
+        word-break: break-all;
+        border: 2px solid #ff6b6b;
+    ">
+        <div><strong>⚠️ エラーパネル (最新50件)</strong></div>
+        <div style="font-size: 9px; margin-top: 5px; border-top: 1px solid #ff6b6b; padding-top: 5px;"></div>
+    </div>
+
+    <script>
+        // ページ管理
+        const MAX_PAGES = 20;
+        let currentPage = 1;
+        const pages = [];
+        
+        // ページデータ構造の初期化
+        for (let p = 0; p < MAX_PAGES; p++) {
+            pages.push({
+                bgmFiles: [null, null],
+                bgmAudioInfos: [null, null],
+                seFiles: {},
+                playingAudios: [],
+                maxDuration: 0,
+                timelineMaxDuration: 30,
+                pixelsPerSecond: 0,
+                bgmStartMinutes: 0,     // 再生開始分
+                bgmStartSeconds: 0,     // 再生開始秒
+                bgmVolume: 100,         // BGM音量（0-200）
+                bgmPitch: 100,          // BGM音程（50-200）
+                seVolume: 100,          // SE音量（0-200）
+                sePitch: 100,           // SE音程（50-200）
+                seEnabled: getDefaultSeEnabledState()  // SE有効状態（デフォルト値を統一）
+            });
+        }
+        
+        // UI要素の参照
+        const bgmGrid = document.getElementById('bgmGrid');
+        const seGrid = document.getElementById('seGrid');
+        const timelineCanvas = document.getElementById('timelineCanvas');
+        const timelineRuler = document.getElementById('timelineRuler');
+        const timelineProgress = document.getElementById('timelineProgress');
+        const audioContainer = document.getElementById('audioContainer');
+        const currentPageDisplay = document.getElementById('currentPage');
+        const saveBtn = document.getElementById('saveBtn');
+        const loadBtn = document.getElementById('loadBtn');
+        const loadFileInput = document.getElementById('loadFileInput');
+        const leftArrowBtn = document.getElementById('leftArrow');
+        const rightArrowBtn = document.getElementById('rightArrow');
+        
+        // 再生コントロールボタン
+        const playBtn = document.getElementById('playBtn');
+        const pauseBtn = document.getElementById('pauseBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const stopAllSeBtn = document.getElementById('stopAllSeBtn');
+        const bgmInfo = document.getElementById('bgmInfo');
+
+        // スライダー要素
+        const bgmVolumeSlider = document.getElementById('bgmVolumeSlider');
+        const bgmPitchSlider = document.getElementById('bgmPitchSlider');
+        const bgmVolumeValue = document.getElementById('bgmVolumeValue');
+        const bgmPitchValue = document.getElementById('bgmPitchValue');
+        
+        // 時間指定パネル要素
+        const bgmStartMinutes = document.getElementById('bgmStartMinutes');
+        const bgmStartSeconds = document.getElementById('bgmStartSeconds');
+        
+        const seVolumeSlider = document.getElementById('seVolumeSlider');
+        const sePitchSlider = document.getElementById('sePitchSlider');
+        const seVolumeValue = document.getElementById('seVolumeValue');
+        const sePitchValue = document.getElementById('sePitchValue');
+
+        // Web Audio API用変数
+        let audioContext = null;
+        let gainNode = null;  // BGM用
+        let seGainNode = null;  // 効果音用
+
+        // Granular Synthesis用データ
+        let audioBuffers = [null, null];  // デコードされた音声データ
+        let detuneAmount = 0;  // セント単位でのピッチシフト量（効果音用）
+
+        // スライダーの現在値
+        let bgmVolume = 1.0;  // BGM音量
+        let bgmPitch = 1.0;   // BGM音程（将来使用）
+        let seVolume = 1.0;   // 効果音音量
+        let sePitch = 1.0;    // 効果音音程
+
+        // 現在のページデータへのアクセス用のプロキシ
+        let playingAudios = [];
+        let maxDuration = 0;
+        let bgmAudioInfos = [null, null];
+        let timelineMaxDuration = 30;
+        let pixelsPerSecond = 0;
+        let bgmFiles = [null, null];
+        let bgmNames = [null, null];
+        let seFiles = {};
+        let seNames = {};
+        let seEnabled = getDefaultSeEnabledState();  // SE有効状態（デフォルトすべてfalse）
+        let bgmFileObjects = [null, null];  // File オブジェクトを保持
+        let seFileObjects = {};  // File オブジェクトを保持
+        let bgmMemos = [null, null];  // BGM メモ
+        let seMemos = {};  // 効果音メモ
+        let controlButtonListenersInitialized = false;  // 制御ボタンのリスナー登録フラグ
+
+        // ===== SE有効状態のデフォルト値を取得
+        function getDefaultSeEnabledState() {
+            return {1: false, 2: false, 3: false, 4: false, 5: false, 6: false, 7: false, 8: false, 9: false, 10: false, 11: false, 12: false};
+        }
+
+        // ===== チェックボックス状態を復元
+        function restoreCheckboxStates() {
+            document.querySelectorAll('.se-checkbox').forEach((checkbox) => {
+                const seNum = parseInt(checkbox.dataset.se);
+                checkbox.checked = seEnabled[seNum] || false;
+            });
+        }
+
+        // ===== ページデータにチェック状態を即座に保存
+        function saveCheckStateToCurrentPage() {
+            if (currentPage >= 1 && currentPage <= MAX_PAGES) {
+                pages[currentPage - 1].seEnabled = {...seEnabled};
+            }
+        }
+
+        // Base64変換ヘルパー関数
+        function arrayBufferToBase64(buffer) {
+            let binary = '';
+            const bytes = new Uint8Array(buffer);
+            for (let i = 0; i < bytes.byteLength; i++) {
+                binary += String.fromCharCode(bytes[i]);
+            }
+            return btoa(binary);
+        }
+
+        function base64ToArrayBuffer(base64) {
+            const binary = atob(base64);
+            const bytes = new Uint8Array(binary.length);
+            for (let i = 0; i < binary.length; i++) {
+                bytes[i] = binary.charCodeAt(i);
+            }
+            return bytes.buffer;
+        }
+
+        // タイムラインの目盛りを生成（秒数表示）
+        function generateRuler() {
+            timelineRuler.innerHTML = '';
+            const containerWidth = timelineRuler.parentElement.offsetWidth;
+            // pixelsPerSecondを固定値として計算（30秒分がコンテナ幅になるように）
+            pixelsPerSecond = containerWidth / 30;
+            // ルーラーとキャンバスの幅をtimelineMaxDurationに応じて調整
+            const rulerWidth = pixelsPerSecond * timelineMaxDuration;
+            
+            // ルーラーとキャンバスの幅を設定
+            timelineRuler.style.width = rulerWidth + 'px';
+            timelineCanvas.style.width = rulerWidth + 'px';
+            
+            for (let i = 0; i <= timelineMaxDuration; i++) {
+                const tickElement = document.createElement('div');
+                tickElement.className = 'timeline-ruler-tick';
+                tickElement.style.left = (i * pixelsPerSecond) + 'px';
+                timelineRuler.appendChild(tickElement);
+
+                if (i % 5 === 0) {
+                    const label = document.createElement('div');
+                    label.className = 'timeline-ruler-label';
+                    label.textContent = i + 's';
+                    label.style.left = (i * pixelsPerSecond) + 'px';
+                    timelineRuler.appendChild(label);
+                }
+            }
+
+            // 初期状態で赤いバーが0秒に合うようにオフセットを設定
+            const initialTranslateX = containerWidth / 2;
+            timelineRuler.style.transform = `translateX(${initialTranslateX}px)`;
+            timelineCanvas.style.transform = `translateX(${initialTranslateX}px)`;
+        }
+
+        window.addEventListener('resize', generateRuler);
+        generateRuler();
+
+        // ===== デバッグ・エラーハンドリング機能 =====
+        // デバッグモードフラグ
+        const DEBUG_MODE = false;  // trueにするとconsoleに詳細ログが出力されます
+
+        // ログ出力関数（デバッグモード対応＋画面表示）
+        function debugLog(message, data = null) {
+            const timestamp = new Date().toLocaleTimeString();
+            const logMsg = `[${timestamp}] ${message}`;
+            
+            if (DEBUG_MODE) {
+                console.log(logMsg, data || '');
+            }
+            
+            // 画面の診断パネルにも追加
+            try {
+                const logPanel = document.getElementById('debugLogPanel');
+                if (logPanel && logPanel.style.display !== 'none') {
+                    const logEntry = document.createElement('div');
+                    logEntry.className = 'log-entry';
+                    logEntry.textContent = logMsg + (data ? ' ' + JSON.stringify(data).substring(0, 100) : '');
+                    logEntry.style.fontSize = '11px';
+                    logEntry.style.padding = '2px';
+                    logEntry.style.borderBottom = '1px solid #ddd';
+                    logPanel.appendChild(logEntry);
+                    if (logPanel.children.length > 100) {
+                        logPanel.removeChild(logPanel.firstChild);
+                    }
+                    logPanel.scrollTop = logPanel.scrollHeight;
+                }
+            } catch (e) {}
+        }
+
+        // エラーロギング関数（詳細フィルタリング込み）
+        function logError(context, error) {
+            // Safari固有のエラー分類
+            const errorName = error?.name || 'UnknownError';
+            const errorCode = error?.code || 'unknown';
+            const errorMessage = error?.message || String(error);
+            
+            // Safari固有のエラー解説
+            let safariExplanation = '';
+            const isSafari = detectSafariEnvironment().isSafari;
+            
+            if (isSafari) {
+                if (errorName === 'NotSupportedError') {
+                    safariExplanation = ' [Safari: 形式非対応]';
+                } else if (errorName === 'InvalidStateError') {
+                    safariExplanation = ' [Safari: 状態エラー - AudioContext不正]';
+                } else if (errorName === 'EncodingError') {
+                    safariExplanation = ' [Safari: デコード失敗]';
+                } else if (errorName === 'AbortError') {
+                    safariExplanation = ' [Safari: 操作中止]';
+                } else if (errorCode === 4) {  // QUOTA_EXCEEDED_ERR
+                    safariExplanation = ' [Safari: メモリ不足]';
+                }
+            }
+            
+            const errorMsg = `【エラー】${context}: ${errorMessage}${safariExplanation}`;
+            const fullError = {
+                context: context,
+                message: errorMessage,
+                name: errorName,
+                code: errorCode,
+                type: error?.type || 'unknown',
+                isSafariError: isSafari,
+                timestamp: new Date().toISOString()
+            };
+            
+            console.error(errorMsg, fullError);
+            
+            // 画面の診断パネルにも追加
+            try {
+                const errorPanel = document.getElementById('debugErrorPanel');
+                if (errorPanel) {
+                    const errorEntry = document.createElement('div');
+                    errorEntry.className = 'error-entry';
+                    errorEntry.textContent = errorMsg + ' (' + errorCode + ')';
+                    errorEntry.style.fontSize = '11px';
+                    errorEntry.style.padding = '3px';
+                    
+                    // Safari固有のエラーは色を変更
+                    if (isSafari && safariExplanation) {
+                        errorEntry.style.backgroundColor = '#ffe0e0';
+                        errorEntry.style.color = '#cc0000';
+                        errorEntry.style.borderLeft = '3px solid #ff6666';
+                    } else {
+                        errorEntry.style.backgroundColor = '#ffebee';
+                        errorEntry.style.color = '#c62828';
+                        errorEntry.style.borderLeft = '3px solid #c62828';
+                    }
+                    
+                    errorEntry.style.marginBottom = '2px';
+                    errorPanel.appendChild(errorEntry);
+                    if (errorPanel.children.length > 50) {
+                        errorPanel.removeChild(errorPanel.firstChild);
+                    }
+                    errorPanel.scrollTop = errorPanel.scrollHeight;
+                }
+            } catch (e) {}
+            
+            return errorMsg;
+        }
+
+        // プライベートブラウズモード検出関数
+        function isPrivateBrowsingMode() {
+            try {
+                const test = '__private_test__';
+                localStorage.setItem(test, test);
+                localStorage.removeItem(test);
+                return false;
+            } catch (e) {
+                return true;
+            }
+        }
+
+        // ブラウザ互換性情報取得
+        function getBrowserInfo() {
+            const ua = navigator.userAgent;
+            return {
+                isChrome: /Chrome/.test(ua),
+                isFirefox: /Firefox/.test(ua),
+                isSafari: /Safari/.test(ua) && !/Chrome/.test(ua),
+                isEdge: /Edge|Edg/.test(ua),
+                isIOS: /iPhone|iPad|iPod/.test(ua),
+                isAndroid: /Android/.test(ua),
+                isMobile: /iPhone|iPad|iPod|Android|Mobile/.test(ua),
+                userAgent: ua
+            };
+        }
+
+        // ===== GitHub Pages対応: blob URLからArrayBufferを取得する汎用関数 (Safari優先対応) =====
+        function getBlobArrayBuffer(blobUrl) {
+            return new Promise((resolve, reject) => {
+                // ブラウザ判定
+                const safari = detectSafariEnvironment();
+                debugLog('getBlobArrayBuffer start', { 
+                    urlType: blobUrl.startsWith('blob:') ? 'blob' : 'other',
+                    isSafari: safari.isSafari,
+                    isIOS: safari.isIOS
+                });
+                
+                // Safari優先: FileReader → XMLHttpRequest → fetch の順
+                const useFileReaderFirst = safari.isSafari || safari.isIOS;
+                
+                if (!useFileReaderFirst) {
+                    // Desktop / Chrome: fetch → FileReader
+                    tryFetch();
+                } else {
+                    // iPad Safari: FileReader優先
+                    tryFileReader();
+                }
+                
+                function tryFileReader() {
+                    debugLog('Trying FileReader method');
+                    fetch(blobUrl)
+                        .then(response => {
+                            if (!response.ok) {
+                                throw new Error(`Fetch failed: ${response.status} ${response.statusText}`);
+                            }
+                            return response.blob();
+                        })
+                        .then(blob => {
+                            const reader = new FileReader();
+                            
+                            reader.onload = function(e) {
+                                debugLog('FileReader succeeded', {
+                                    blobSize: blob.size,
+                                    bufferSize: e.target.result.byteLength
+                                });
+                                resolve(e.target.result);
+                            };
+                            
+                            reader.onerror = function(e) {
+                                debugLog('FileReader failed, trying XMLHttpRequest', { error: e.error });
+                                tryXHR();
+                            };
+                            
+                            reader.readAsArrayBuffer(blob);
+                        })
+                        .catch(error => {
+                            debugLog('Fetch failed, trying XMLHttpRequest', { error: error.message });
+                            tryXHR();
+                        });
+                }
+                
+                function tryFetch() {
+                    debugLog('Trying direct fetch method');
+                    fetch(blobUrl)
+                        .then(response => {
+                            if (!response.ok) {
+                                throw new Error(`Fetch failed: ${response.status}`);
+                            }
+                            return response.arrayBuffer();
+                        })
+                        .then(arrayBuffer => {
+                            debugLog('Direct fetch succeeded', { bufferSize: arrayBuffer.byteLength });
+                            resolve(arrayBuffer);
+                        })
+                        .catch(error => {
+                            debugLog('Fetch failed, trying XMLHttpRequest', { error: error.message });
+                            tryXHR();
+                        });
+                }
+                
+                function tryXHR() {
+                    debugLog('Trying XMLHttpRequest method');
+                    const xhr = new XMLHttpRequest();
+                    xhr.open('GET', blobUrl, true);
+                    xhr.responseType = 'arraybuffer';
+                    
+                    xhr.onload = function() {
+                        if (xhr.status === 200 || xhr.status === 0) {
+                            debugLog('XMLHttpRequest succeeded', { size: xhr.response.byteLength });
+                            resolve(xhr.response);
+                        } else {
+                            reject(new Error(`XHR failed: ${xhr.status}`));
+                        }
+                    };
+                    
+                    xhr.onerror = function() {
+                        logError('getBlobArrayBuffer XHR error', new Error('XMLHttpRequest failed'));
+                        reject(new Error('XMLHttpRequest failed'));
+                    };
+                    
+                    xhr.ontimeout = function() {
+                        reject(new Error('XMLHttpRequest timeout'));
+                    };
+                    
+                    xhr.timeout = 30000;  // 30秒タイムアウト
+                    xhr.send();
+                }
+            });
+        }
+
+        // ===== Safari互換性診断関数 =====
+        function getSafariDiagnostics() {
+            const browserInfo = getBrowserInfo();
+            const isIPadSafari = browserInfo.isIOS && browserInfo.isSafari;
+            
+            return {
+                isIPadSafari: isIPadSafari,
+                canUseWebAudio: !!(window.AudioContext || window.webkitAudioContext),
+                canUseFileReader: typeof FileReader !== 'undefined',
+                canUseFetch: typeof fetch !== 'undefined',
+                canUseBlob: typeof Blob !== 'undefined',
+                canUseObjectURL: !!(window.URL && window.URL.createObjectURL),
+                privateMode: isPrivateBrowsingMode(),
+                audioFormatsSupported: checkAudioFormatsSupport()
+            };
+        }
+
+        // ===== オーディオフォーマット対応確認 =====
+        function checkAudioFormatsSupport() {
+            const audio = document.createElement('audio');
+            if (!audio.canPlayType) {
+                return {mp3: 'unknown', wav: 'unknown', m4a: 'unknown', ogg: 'unknown'};
+            }
+            
+            return {
+                mp3: audio.canPlayType('audio/mpeg') ? 'YES' : 'NO',
+                wav: audio.canPlayType('audio/wav') ? 'YES' : 'NO',
+                m4a: audio.canPlayType('audio/mp4') ? 'YES' : 'NO',
+                ogg: audio.canPlayType('audio/ogg') ? 'YES' : 'NO',
+                aac: audio.canPlayType('audio/aac') ? 'YES' : 'NO',
+                flac: audio.canPlayType('audio/flac') ? 'YES' : 'NO'
+            };
+        }
+
+        // ===== Safari検出関数 =====
+        function detectSafariEnvironment() {
+            const ua = navigator.userAgent;
+            return {
+                isSafari: /^((?!chrome|android).)*safari/i.test(ua),
+                isIPad: /iPad/.test(ua) || (/Mac/.test(ua) && navigator.maxTouchPoints > 4),
+                isIOS: /iPhone|iPad|iPod/.test(ua),
+                isChromeOnIOS: /iPad|iPhone|iPod/.test(ua) && /Chrome/.test(ua),
+                userAgent: ua.substring(0, 100)
+            };
+        }
+
+        // ===== 再生前セルフチェック =====
+        function checkAudioSystem() {
+            const issues = [];
+
+            if (!audioContext) {
+                issues.push('AudioContext が未初期化です');
+            } else {
+                if (audioContext.state === 'closed') {
+                    issues.push('AudioContext が閉じられています');
+                } else if (audioContext.state === 'suspended') {
+                    debugLog('AudioContext is suspended - will resume');
+                }
+                if (!audioContext.destination) {
+                    issues.push('AudioContext destination が無効です');
+                }
+                if (!audioContext.sampleRate) {
+                    issues.push('AudioContext sampleRate が無効です');
+                }
+            }
+
+            if (!gainNode) {
+                issues.push('BGM GainNode が未初期化です');
+            }
+            if (!seGainNode) {
+                issues.push('SE GainNode が未初期化です');
+            }
+
+            if (bgmVolume === 0 && seVolume === 0) {
+                issues.push('BGM/SE 音量が両方0に設定されています');
+            }
+
+            if (issues.length > 0) {
+                debugLog('Audio system check failed', { issues });
+                return { valid: false, issues };
+            }
+
+            debugLog('Audio system check passed');
+            return { valid: true, issues: [] };
+        }
+        
+        // ===== 再生前包括環境チェック（新規） =====
+        function checkPlaybackEnvironment(audioFileInfo) {
+            const issues = [];
+            const warnings = [];
+            
+            // AudioContext存在確認
+            if (!audioContext) {
+                issues.push('AudioContext が未初期化です');
+                return { canPlay: false, issues, warnings, method: 'none' };
+            }
+            
+            // AudioContext状態確認
+            if (audioContext.state === 'closed') {
+                issues.push('AudioContext が閉じられています');
+                return { canPlay: false, issues, warnings, method: 'none' };
+            }
+            
+            // GainNode確認
+            const targetGainNode = audioFileInfo.type === 'bgm' ? gainNode : seGainNode;
+            if (!targetGainNode) {
+                issues.push(`${audioFileInfo.type === 'bgm' ? 'BGM' : 'SE'} GainNode が未初期化です`);
+                return { canPlay: false, issues, warnings, method: 'none' };
+            }
+            
+            // 音量確認
+            if (targetGainNode.gain.value === 0) {
+                warnings.push(`${audioFileInfo.type === 'bgm' ? 'BGM' : 'SE'} 音量が 0 に設定されています`);
+            }
+            
+            // 再生方式の判定
+            let method = 'none';
+            if (audioFileInfo.buffer) {
+                method = 'WebAudio';  // decodeAudioData成功
+            } else if (audioFileInfo.blobUrl) {
+                method = 'HTMLAudio';  // Blob URLあり
+            } else {
+                issues.push('音声データが未ロードです');
+            }
+            
+            debugLog('Playback environment check', {
+                canPlay: issues.length === 0,
+                issues,
+                warnings,
+                method,
+                audioContextState: audioContext.state,
+                sampleRate: audioContext.sampleRate
+            });
+            
+            return {
+                canPlay: issues.length === 0,
+                issues,
+                warnings,
+                method,
+                audioContextState: audioContext.state,
+                sampleRate: audioContext.sampleRate
+            };
+        }
+        
+        // ===== detune値の安全化（新規） =====
+        function sanitizeDetuneValue(value) {
+            // NaN チェック
+            if (isNaN(value)) {
+                debugLog('detune NaN detected - reset to 0');
+                return 0;
+            }
+            
+            // Infinity チェック
+            if (!isFinite(value)) {
+                debugLog('detune Infinity detected - reset to 0');
+                return 0;
+            }
+            
+            // 範囲制限: -1200 ～ +1200 cents
+            const clamped = Math.max(-1200, Math.min(1200, value));
+            if (clamped !== value) {
+                debugLog('detune clamped', { original: value, clamped });
+            }
+            
+            return clamped;
+        }
+        
+        // ===== Safari エラー詳細説明（新規） =====
+        function getSafariErrorExplanation(errorName, errorCode) {
+            const explanations = {
+                'NotSupportedError': {
+                    title: '形式非対応エラー',
+                    description: 'この音声形式はこのブラウザでサポートされていません。',
+                    solution: 'MP3、WAV、M4A、AAC などの推奨形式をお試しください。'
+                },
+                'EncodingError': {
+                    title: 'デコードエラー',
+                    description: '音声データのデコードに失敗しました。',
+                    solution: 'ファイルが正しい音声形式か確認してください。大容量ファイルの場合は圧縮を試してください。'
+                },
+                'InvalidStateError': {
+                    title: 'AudioContext状態エラー',
+                    description: 'AudioContext の状態が不正です。',
+                    solution: 'ページをリロードして再度お試しください。'
+                },
+                'AbortError': {
+                    title: '操作中止エラー',
+                    description: '再生操作が中止されました。',
+                    solution: '再度再生ボタンを押してください。'
+                },
+                'SecurityError': {
+                    title: 'セキュリティエラー',
+                    description: 'CORS または セキュリティポリシーのエラーです。',
+                    solution: 'HTTPS環境で実行してください。'
+                },
+                'QuotaExceededError': {
+                    title: 'メモリ不足エラー',
+                    description: 'デコード中にメモリが不足しました。',
+                    solution: 'より小さいファイルか低ビットレート版をお試しください。'
+                }
+            };
+            
+            return explanations[errorName] || {
+                title: '不明なエラー',
+                description: `エラー: ${errorName}`,
+                solution: 'ブラウザを再読み込みしてください。'
+            };
+        }
+
+        // ===== decodeAudioData失敗時のフォールバック再生（改善版） =====
+        async function playAudioWithFallback(arrayBuffer, fileName, type, startTime = 0, detune = 0) {
+            debugLog('playAudioWithFallback start', { 
+                fileName, 
+                type, 
+                startTime,
+                bufferSize: arrayBuffer.byteLength,
+                detune: sanitizeDetuneValue(detune)
+            });
+
+            try {
+                // 最初にdecodeAudioDataを試みる
+                return new Promise((resolve, reject) => {
+                    if (!audioContext || audioContext.state === 'closed') {
+                        debugLog('AudioContext unavailable for decodeAudioData');
+                        // HTMLAudioElement方式へフォールバック: BlobURLを生成
+                        try {
+                            const blob = new Blob([arrayBuffer], { type: 'audio/mpeg' });
+                            const blobUrl = URL.createObjectURL(blob);
+                            resolve({ 
+                                method: 'HTMLAudioElement', 
+                                status: 'AudioContextUnavailable',
+                                blobUrl: blobUrl
+                            });
+                        } catch (blobError) {
+                            logError('Blob URL creation failed (AudioContext unavailable)', blobError);
+                            resolve({ 
+                                method: 'HTMLAudioElement', 
+                                status: 'AudioContextUnavailable'
+                            });
+                        }
+                        return;
+                    }
+
+                    audioContext.decodeAudioData(
+                        arrayBuffer,
+                        (buffer) => {
+                            debugLog('decodeAudioData success', {
+                                fileName,
+                                duration: buffer.duration,
+                                sampleRate: buffer.sampleRate,
+                                numberOfChannels: buffer.numberOfChannels
+                            });
+                            resolve({ 
+                                buffer, 
+                                method: 'WebAudio',
+                                status: 'success',
+                                duration: buffer.duration,
+                                sampleRate: buffer.sampleRate,
+                                detune: sanitizeDetuneValue(detune)
+                            });
+                        },
+                        (error) => {
+                            // Safari: decodeAudioData失敗時のフォールバック
+                            const errorExp = getSafariErrorExplanation(error.name || 'UnknownError', error.code);
+                            debugLog('decodeAudioData failed - falling back to HTMLAudioElement', {
+                                fileName,
+                                errorName: error.name,
+                                errorMessage: error.message,
+                                errorExplanation: errorExp.title,
+                                arrayBufferSize: arrayBuffer.byteLength
+                            });
+                            logError(`デコード失敗（${errorExp.title}）`, error);
+                            
+                            // HTMLAudioElement方式へフォールバック: BlobURLを生成
+                            try {
+                                const blob = new Blob([arrayBuffer], { type: 'audio/mpeg' });
+                                const blobUrl = URL.createObjectURL(blob);
+                                resolve({ 
+                                    method: 'HTMLAudioElement',
+                                    status: 'decodeFailure',
+                                    reason: error.name,
+                                    explanation: errorExp,
+                                    blobUrl: blobUrl,
+                                    duration: 0  // HTMLAudio用は正確な長さが不明
+                                });
+                            } catch (blobError) {
+                                logError('Blob URL creation failed', blobError);
+                                resolve({ 
+                                    method: 'HTMLAudioElement',
+                                    status: 'decodeFailure',
+                                    reason: error.name,
+                                    explanation: errorExp
+                                });
+                            }
+                        }
+                    );
+                });
+            } catch (error) {
+                logError('playAudioWithFallback exception', error);
+                // 最後の手段：HTMLAudioElement - BlobURLを生成
+                try {
+                    const blob = new Blob([arrayBuffer], { type: 'audio/mpeg' });
+                    const blobUrl = URL.createObjectURL(blob);
+                    return {
+                        method: 'HTMLAudioElement',
+                        status: 'exceptionFallback',
+                        error: error.message,
+                        blobUrl: blobUrl
+                    };
+                } catch (blobError) {
+                    logError('Blob URL creation failed (exception fallback)', blobError);
+                    return {
+                        method: 'HTMLAudioElement',
+                        status: 'exceptionFallback',
+                        error: error.message
+                    };
+                }
+            }
+        }
+        
+        // ===== HTMLAudioElementフォールバック実装（新規） =====
+        function createHTMLAudioElementFallback(arrayBuffer, fileName, type) {
+            debugLog('Creating HTMLAudioElement fallback', { fileName, type, size: arrayBuffer.byteLength });
+            
+            try {
+                // ArrayBufferからBlobを作成
+                const blob = new Blob([arrayBuffer], { type: 'audio/mpeg' });
+                const url = URL.createObjectURL(blob);
+                
+                // HTMLAudioElementを作成
+                const audio = document.createElement('audio');
+                audio.src = url;
+                audio.style.display = 'none';
+                audio.crossOrigin = 'anonymous';
+                audioContainer.appendChild(audio);
+                
+                debugLog('HTMLAudioElement fallback created', { 
+                    blobUrl: url.substring(0, 60),
+                    blobSize: blob.size
+                });
+                
+                // 再生準備完了イベント
+                audio.addEventListener('canplay', () => {
+                    debugLog('HTMLAudioElement ready for playback', { fileName, duration: audio.duration });
+                }, { once: true });
+                
+                // エラーハンドラ
+                audio.addEventListener('error', (e) => {
+                    const errorMsg = `HTMLAudioElement再生エラー: ${audio.error?.message || '不明'}`;
+                    logError('HTMLAudioElement error', new Error(audio.error?.message || 'HTMLAudio Error'));
+                    debugLog('HTMLAudioElement error details', {
+                        fileName,
+                        errorCode: audio.error?.code,
+                        errorMessage: audio.error?.message,
+                        src: url.substring(0, 60)
+                    });
+                });
+                
+                // 終了イベント
+                audio.addEventListener('ended', () => {
+                    debugLog('HTMLAudioElement playback ended', { fileName });
+                    audio.remove();
+                    URL.revokeObjectURL(url);
+                });
+                
+                return audio;
+            } catch (error) {
+                logError('HTMLAudioElement creation failed', error);
+                debugLog('Fallback creation error', { error: error.message });
+                return null;
+            }
+        }
+
+        // ===== AudioContext初期化関数（ユーザー操作後、常時監視） =====
+        function initAudioContext() {
+            // AudioContext状態を確認
+            if (audioContext) {
+                const state = audioContext.state;
+                debugLog('AudioContext state check', {
+                    exists: true,
+                    state: state,
+                    sampleRate: audioContext.sampleRate,
+                    isClosed: state === 'closed'
+                });
+                
+                if (state === 'closed') {
+                    debugLog('AudioContext is closed, creating new one');
+                    audioContext = null;  // 閉じたcontextをリセット
+                    gainNode = null;
+                    seGainNode = null;
+                } else if (state === 'running' || state === 'suspended') {
+                    return true;  // 既に動作中（suspendedは後でresumeされる）
+                }
+            }
+
+            try {
+                const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+                if (!AudioContextClass) {
+                    const msg = logError('AudioContext初期化', 'AudioContextがこのブラウザでサポートされていません');
+                    alert(msg);
+                    return false;
+                }
+
+                audioContext = new AudioContextClass();
+                debugLog('AudioContext created', {
+                    state: audioContext.state,
+                    sampleRate: audioContext.sampleRate,
+                    destination: audioContext.destination ? 'available' : 'null',
+                    maxChannelCount: audioContext.destination.maxChannelCount
+                });
+
+                // BGM用GainNode
+                if (!gainNode) {
+                    gainNode = audioContext.createGain();
+                    // スライダー値から正しい音量を取得（デフォルト100）
+                    const bgmSliderValue = parseInt(bgmVolumeSlider.value) || 100;
+                    bgmVolume = bgmSliderValue / 100;
+                    gainNode.gain.value = bgmVolume;  // 初期音量を設定
+                    gainNode.connect(audioContext.destination);
+                    debugLog('BGM GainNode created', { value: bgmVolume, sliderValue: bgmSliderValue });
+                }
+
+                // 効果音用GainNode
+                if (!seGainNode) {
+                    seGainNode = audioContext.createGain();
+                    // スライダー値から正しい音量を取得（デフォルト100）
+                    const seSliderValue = parseInt(seVolumeSlider.value) || 100;
+                    seVolume = seSliderValue / 100;
+                    seGainNode.gain.value = seVolume;  // 初期音量を設定
+                    seGainNode.connect(audioContext.destination);
+                    debugLog('SE GainNode created', { value: seVolume, sliderValue: seSliderValue });
+                }
+
+                return true;
+            } catch (error) {
+                logError('AudioContext初期化失敗', error);
+                debugLog('AudioContext creation exception', { errorMessage: error.message, errorType: error.type });
+                return false;
+            }
+        }
+        
+        // AudioContextの状態を監視してresumeを実行（Promiseベース） 
+        async function ensureAudioContextRunning() {
+            if (!audioContext) {
+                const result = initAudioContext();
+                if (!result) {
+                    debugLog('initAudioContext failed');
+                    return false;
+                }
+            }
+            
+            const state = audioContext.state;
+            debugLog('AudioContext state before ensure', {
+                state,
+                sampleRate: audioContext.sampleRate
+            });
+            
+            if (state === 'suspended') {
+                try {
+                    await audioContext.resume();
+                    debugLog('AudioContext resumed successfully', { newState: audioContext.state });
+                    return true;
+                } catch (err) {
+                    const msg = logError('AudioContext resume失敗', err);
+                    debugLog('Resume error details', { error: err.message, errorType: err.type || err.name });
+                    console.error('AudioContext resume失敗:', msg);
+                    return false;
+                }
+            }
+            
+            if (state === 'running') {
+                debugLog('AudioContext already running');
+                return true;
+            }
+            
+            if (state === 'closed') {
+                debugLog('AudioContext is closed, reinitializing');
+                return initAudioContext();
+            }
+            
+            return true;
+        }
+
+        // ページ切り替え機能
+        function saveCurrentPageData() {
+            pages[currentPage - 1] = {
+                bgmFiles: [...bgmFiles],
+                bgmFileObjects: [...bgmFileObjects],
+                bgmNames: bgmNames ? [...bgmNames] : [null, null],
+                bgmAudioInfos: [...bgmAudioInfos],
+                seFiles: {...seFiles},
+                seFileObjects: {...seFileObjects},
+                seNames: seNames ? {...seNames} : {},
+                seEnabled: {...seEnabled},  // チェック状態を確実に保存
+                bgmMemos: bgmMemos ? [...bgmMemos] : [null, null],
+                seMemos: seMemos ? {...seMemos} : {},
+                playingAudios: [],  // 再生中のオーディオは保存しない
+                maxDuration: maxDuration,
+                timelineMaxDuration: timelineMaxDuration,
+                pixelsPerSecond: pixelsPerSecond,
+                audioBuffers: [...audioBuffers],  // AudioBufferも保存
+                bgmStartMinutes: parseInt(bgmStartMinutes.value) || 0,  // 再生開始分を保存
+                bgmStartSeconds: parseInt(bgmStartSeconds.value) || 0,  // 再生開始秒を保存
+                bgmVolume: parseInt(bgmVolumeSlider.value) || 100,      // BGM音量を保存
+                bgmPitch: parseInt(bgmPitchSlider.value) || 100,        // BGM音程を保存
+                seVolume: parseInt(seVolumeSlider.value) || 100,        // SE音量を保存
+                sePitch: parseInt(sePitchSlider.value) || 100           // SE音程を保存
+            };
+        }
+
+        function loadPageData(pageNum) {
+            const pageData = pages[pageNum - 1];
+            bgmFiles = [...pageData.bgmFiles];
+            bgmFileObjects = [...(pageData.bgmFileObjects || [null, null])];
+            bgmNames = pageData.bgmNames ? [...pageData.bgmNames] : [null, null];
+            
+            // スライダー設定を復元
+            const bgmVolValue = pageData.bgmVolume || 100;
+            bgmVolumeSlider.value = bgmVolValue;
+            bgmVolumeValue.textContent = bgmVolValue;
+            bgmVolume = bgmVolValue / 100;  // グローバル変数を更新
+            if (gainNode) gainNode.gain.value = bgmVolume;  // GainNodeも更新
+            
+            bgmPitchSlider.value = pageData.bgmPitch || 100;
+            bgmPitchValue.textContent = pageData.bgmPitch || 100;
+            
+            const seVolValue = pageData.seVolume || 100;
+            seVolumeSlider.value = seVolValue;
+            seVolumeValue.textContent = seVolValue;
+            seVolume = seVolValue / 100;  // グローバル変数を更新
+            if (seGainNode) seGainNode.gain.value = seVolume;  // GainNodeも更新
+            
+            sePitchSlider.value = pageData.sePitch || 100;
+            sePitchValue.textContent = pageData.sePitch || 100;
+            bgmAudioInfos = [...pageData.bgmAudioInfos];
+            seFiles = {...pageData.seFiles};
+            seFileObjects = {...(pageData.seFileObjects || {})};
+            seNames = pageData.seNames ? {...pageData.seNames} : {};
+            // ===== SE有効状態を復元（デフォルト値を統一）
+            seEnabled = pageData.seEnabled ? {...pageData.seEnabled} : getDefaultSeEnabledState();
+            bgmMemos = pageData.bgmMemos ? [...pageData.bgmMemos] : [null, null];
+            seMemos = pageData.seMemos ? {...pageData.seMemos} : {};
+            playingAudios = [];  // 再生中のオーディオはリセット
+            maxDuration = pageData.maxDuration;
+            timelineMaxDuration = pageData.timelineMaxDuration;
+            pixelsPerSecond = pageData.pixelsPerSecond;
+            audioBuffers = [...(pageData.audioBuffers || [null, null])];
+            
+            // チェックボックスの状態を復元（改善版）
+            restoreCheckboxStates();
+            
+            // 再生開始時刻を復元
+            bgmStartMinutes.value = pageData.bgmStartMinutes || 0;
+            bgmStartSeconds.value = pageData.bgmStartSeconds || 0;
+
+            // ページロード時、SE ファイルをタイムラインに自動表示
+            if (seFiles && Object.keys(seFiles).length > 0) {
+                loadSeAudioInfosFromFiles();
+            }
+        }
+
+        // ページロード時に SE ファイルをデコードしてタイムラインに追加
+        function loadSeAudioInfosFromFiles() {
+            for (let seNum in seFiles) {
+                if (seFiles[seNum]) {
+                    const fileUrl = seFiles[seNum];
+                    const fileName = seNames[seNum] || ('SE ' + seNum);
+                    
+                    getBlobArrayBuffer(fileUrl)
+                        .then(arrayBuffer => {
+                            debugLog('ページロードSE ArrayBuffer取得成功', {seNum, fileName, size: arrayBuffer.byteLength});
+                            
+                            // AudioContext 初期化
+                            if (!audioContext || audioContext.state === 'closed') {
+                                initAudioContext();
+                            }
+                            
+                            // AudioBuffer にデコード
+                            audioContext.decodeAudioData(arrayBuffer,
+                                (buffer) => {
+                                    // SE メタデータを作成
+                                    const audioInfo = {
+                                        buffer: buffer,
+                                        fileName: fileName,
+                                        type: 'se',
+                                        duration: buffer.duration,
+                                        startBgmTime: 0,
+                                        barElement: null,
+                                        isPlaying: false
+                                    };
+                                    
+                                    // playingAudios に追加（表示目的）
+                                    playingAudios.push(audioInfo);
+                                    
+                                    // タイムラインに SE バーを作成
+                                    createAudioBar(audioInfo);
+                                    
+                                    // タイムラインを更新
+                                    updateTimeline();
+                                    
+                                    debugLog('ページロードSE デコード完了', {
+                                        seNum: seNum,
+                                        fileName: fileName,
+                                        duration: buffer.duration,
+                                        sampleRate: buffer.sampleRate,
+                                        numberOfChannels: buffer.numberOfChannels
+                                    });
+                                },
+                                (error) => {
+                                    const msg = logError('ページロード時SEデコード失敗', error);
+                                    debugLog('ページロード時SEデコード失敗詳細', {
+                                        seNum: seNum,
+                                        fileName: fileName,
+                                        errorType: error?.type,
+                                        errorCode: error?.code,
+                                        error: msg
+                                    });
+                                }
+                            );
+                        })
+                        .catch(error => {
+                            const msg = logError('ページロード時SEファイル読込失敗', error);
+                            debugLog('ページロード時SEファイル読込失敗詳細', {
+                                seNum: seNum,
+                                fileName: fileName,
+                                urlType: fileUrl.startsWith('blob:') ? 'blob' : 'other',
+                                error: error.message
+                            });
+                        });
+                }
+            }
+        }
+
+        function stopAllAudio() {
+            // 全ての再生中の音声を停止
+            playingAudios.forEach(audioInfo => {
+                if (audioInfo && audioInfo.sourceNode) {
+                    try {
+                        audioInfo.sourceNode.stop();
+                    } catch (e) {}
+                    audioInfo.isPlaying = false;
+                    audioInfo.pauseTime = 0;
+                }
+            });
+            for (let i = 0; i < 2; i++) {
+                if (bgmAudioInfos[i] && bgmAudioInfos[i].sourceNode) {
+                    try {
+                        bgmAudioInfos[i].sourceNode.stop();
+                    } catch (e) {}
+                    bgmAudioInfos[i].isPlaying = false;
+                    bgmAudioInfos[i].pauseTime = 0;
+                    bgmAudioInfos[i].autoLoopEnabled = false;  // ページ変更時は自動ループを無効化
+                }
+            }
+        }
+
+        function clearUIElements() {
+            // タイムラインをクリア
+            timelineCanvas.innerHTML = '';
+            timelineRuler.innerHTML = '';
+            playingAudios = [];
+            playBtn.style.display = 'block';
+            pauseBtn.style.display = 'none';
+            bgmInfo.textContent = 'BGM: 準備中...';
+        }
+
+        function goToPage(pageNum) {
+            if (pageNum < 1 || pageNum > MAX_PAGES || pageNum === currentPage) return;
+
+            // 現在のページを保存
+            saveCurrentPageData();
+            stopAllAudio();  // ← ページ変更時にすべての音声を停止
+            clearUIElements();
+
+            // ページを切り替え
+            currentPage = pageNum;
+            currentPageDisplay.textContent = pageNum;
+            loadPageData(pageNum);
+
+            // UI要素を再生成
+            generateUIButtons();
+
+            // ボタンテキストを復元
+            for (let i = 0; i < 2; i++) {
+                if (bgmNames[i]) {
+                    const bgmButton = document.querySelector(`.bgm-button[data-bgm="${i}"]`);
+                    if (bgmButton) {
+                        bgmButton.textContent = bgmNames[i];
+                    }
+                }
+            }
+            for (let seNum in seNames) {
+                if (seNames[seNum]) {
+                    const seButton = document.querySelector(`.se-button[data-se="${seNum}"]`);
+                    if (seButton) {
+                        seButton.textContent = seNames[seNum];
+                    }
+                }
+            }
+
+            // タイムラインを更新
+            generateRuler();
+
+            // BGMバーの再表示
+            for (let i = 0; i < 2; i++) {
+                if (bgmAudioInfos[i] && bgmAudioInfos[i].buffer) {
+                    if (!bgmAudioInfos[i].barElement) {
+                        createAudioBar(bgmAudioInfos[i]);
+                    } else {
+                        // barElement が存在しても DOM に追加されていない可能性
+                        if (!timelineCanvas.contains(bgmAudioInfos[i].barElement)) {
+                            timelineCanvas.appendChild(bgmAudioInfos[i].barElement);
+                        }
+                    }
+                }
+            }
+
+            // BGM1を自動配置（ページ変更時）
+            if (bgmFiles[0] && !bgmAudioInfos[0]) {
+                bgmAudioInfos[0] = setupBGM(bgmFiles[0], bgmNames[0] || 'BGM 1', 0);
+            } else if (!bgmFiles[0] && bgmAudioInfos[0]) {
+                // BGM1が削除されていればクリア
+                bgmAudioInfos[0] = null;
+            }
+
+            // 矢印ボタンの有効/無効を制御
+            leftArrowBtn.disabled = currentPage === 1;
+            rightArrowBtn.disabled = currentPage === MAX_PAGES;
+        }
+
+        // 矢印ボタンのイベントリスナー
+        leftArrowBtn.addEventListener('click', () => {
+            debugLog('Left arrow button clicked - stopping all audio');
+            goToPage(currentPage - 1);
+        });
+        rightArrowBtn.addEventListener('click', () => {
+            debugLog('Right arrow button clicked - stopping all audio');
+            goToPage(currentPage + 1);
+        });
+
+        // 保存ボタンのイベントリスナー
+        saveBtn.addEventListener('click', async () => {
+            try {
+                // iOS/iPad環境を検出
+                const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
+                
+                if (isIOS && navigator.share) {
+                    // iOS/iPad: navigator.share() を使用
+                    const saveData = await prepareSaveData();
+                    const jsonString = JSON.stringify(saveData, null, 2);
+                    const fileName = '劇音声ソフト_設定_' + new Date().toISOString().slice(0, 10) + '.json';
+                    const blob = new Blob([jsonString], { type: 'application/json' });
+                    
+                    try {
+                        const file = new File([blob], fileName, { type: 'application/json' });
+                        await navigator.share({
+                            files: [file],
+                            title: '劇音声ソフト設定',
+                            text: '劇音声ソフトの設定ファイルです'
+                        });
+                        console.log('ファイルをシェアしました');
+                    } catch (error) {
+                        if (error.name !== 'AbortError') {
+                            console.error('Share error:', error);
+                            // フォールバック: 従来のダウンロード方式
+                            saveAllPageData();
+                        }
+                    }
+                } else if (isIOS && !navigator.share) {
+                    // iOS/iPad（古いブラウザ）: 従来のダウンロード方式
+                    saveAllPageData();
+                } else {
+                    // その他のブラウザ: File System Access API を試す
+                    if (window.showSaveFilePicker) {
+                        try {
+                            const handle = await window.showSaveFilePicker({
+                                suggestedName: '劇音声ソフト_設定_' + new Date().toISOString().slice(0, 10) + '.json',
+                                types: [{
+                                    description: 'JSON File',
+                                    accept: { 'application/json': ['.json'] }
+                                }],
+                                startIn: 'documents'
+                            });
+                            
+                            const writable = await handle.createWritable();
+                            const saveData = await prepareSaveData();
+                            const jsonString = JSON.stringify(saveData, null, 2);
+                            await writable.write(jsonString);
+                            await writable.close();
+                            alert('設定を保存しました！');
+                        } catch (error) {
+                            if (error.name !== 'AbortError') {
+                                console.error('File save error:', error);
+                                // フォールバック: 従来のダウンロード方式
+                                saveAllPageData();
+                            }
+                        }
+                    } else {
+                        // File System Access API が使用不可: 従来のダウンロード方式
+                        saveAllPageData();
+                    }
+                }
+            } catch (error) {
+                alert('保存中にエラーが発生しました：' + error.message);
+            }
+        });
+
+        // 読み込みボタンのイベントリスナー
+        loadBtn.addEventListener('click', () => {
+            const browserInfo = getBrowserInfo();
+            debugLog('Load button clicked', browserInfo);
+            
+            if (browserInfo.isMobile) {
+                debugLog('Mobile device detected - opening file picker');
+            }
+            
+            loadFileInput.click();
+        });
+
+        loadFileInput.addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (!file) {
+                debugLog('No file selected');
+                return;
+            }
+
+            // ファイル検証
+            if (!file.name.endsWith('.json')) {
+                alert('JSONファイルを選択してください。(.jsonファイルが必要です)');
+                loadFileInput.value = '';
+                return;
+            }
+
+            if (file.size > 50 * 1024 * 1024) {  // 50MB制限
+                alert('ファイルが大きすぎます。50MB以下のファイルを使用してください。');
+                loadFileInput.value = '';
+                return;
+            }
+
+            try {
+                debugLog('Loading file', {name: file.name, size: file.size});
+                loadAllPageData(file);
+            } catch (error) {
+                const msg = logError('ファイル読み込み処理エラー', error);
+                alert('ファイルの読み込みに失敗しました:\n' + error.message);
+            }
+
+            // ファイル入力をリセット
+            loadFileInput.value = '';
+        });
+
+        // 保存用データを準備する関数（非同期）
+        async function prepareSaveData() {
+            const saveData = {
+                version: "1.0",
+                currentPage: currentPage,
+                pages: []
+            };
+
+            for (let i = 0; i < MAX_PAGES; i++) {
+                const pageData = pages[i];
+                const bgmBase64 = [null, null];
+                const seBase64 = {};
+
+                // BGM ファイルを Base64 に変換
+                for (let j = 0; j < 2; j++) {
+                    if (pageData.bgmFileObjects && pageData.bgmFileObjects[j]) {
+                        const file = pageData.bgmFileObjects[j];
+                        const arrayBuffer = await file.arrayBuffer();
+                        bgmBase64[j] = arrayBufferToBase64(arrayBuffer);
+                    }
+                }
+
+                // SE ファイルを Base64 に変換
+                if (pageData.seFileObjects) {
+                    for (let seNum in pageData.seFileObjects) {
+                        const file = pageData.seFileObjects[seNum];
+                        if (file) {
+                            const arrayBuffer = await file.arrayBuffer();
+                            seBase64[seNum] = arrayBufferToBase64(arrayBuffer);
+                        }
+                    }
+                }
+
+                saveData.pages.push({
+                    pageNum: i + 1,
+                    bgmNames: pageData.bgmNames ? [...pageData.bgmNames] : [null, null],
+                    seNames: pageData.seNames ? {...pageData.seNames} : {},
+                    seEnabled: pageData.seEnabled ? {...pageData.seEnabled} : getDefaultSeEnabledState(),
+                    bgmMemos: pageData.bgmMemos || [null, null],
+                    seMemos: pageData.seMemos || {},
+                    bgmAudio: bgmBase64,
+                    seAudio: seBase64,
+                    bgmStartMinutes: pageData.bgmStartMinutes || 0,    // 再生開始分を保存
+                    bgmStartSeconds: pageData.bgmStartSeconds || 0,    // 再生開始秒を保存
+                    bgmVolume: pageData.bgmVolume || 100,              // BGM音量を保存
+                    bgmPitch: pageData.bgmPitch || 100,                // BGM音程を保存
+                    seVolume: pageData.seVolume || 100,                // SE音量を保存
+                    sePitch: pageData.sePitch || 100                   // SE音程を保存
+                });
+            }
+
+            return saveData;
+        }
+
+        // 全ページのデータを保存する関数（非同期）
+        async function saveAllPageData() {
+            const saveData = await prepareSaveData();
+
+            // JSON を文字列に変換
+            const jsonString = JSON.stringify(saveData, null, 2);
+            const fileName = '劇音声ソフト_設定_' + new Date().toISOString().slice(0, 10) + '.json';
+
+            // Blob を作成
+            const blob = new Blob([jsonString], { type: 'application/json' });
+
+            // iOS/iPad: navigator.share() を使用してファイルアプリに保存
+            if (navigator.share && /iPhone|iPad|iPod/.test(navigator.userAgent)) {
+                try {
+                    const file = new File([blob], fileName, { type: 'application/json' });
+                    await navigator.share({
+                        files: [file],
+                        title: '劇音声ソフト設定',
+                        text: '劇音声ソフトの設定ファイルです'
+                    });
+                    console.log('ファイルをシェアしました');
+                } catch (error) {
+                    if (error.name !== 'AbortError') {
+                        console.error('Share error:', error);
+                        // フォールバック: 従来のダウンロード方式
+                        downloadFile(blob, fileName);
+                    }
+                }
+            } else {
+                // その他のブラウザ: 従来のダウンロード方式
+                downloadFile(blob, fileName);
+            }
+
+            function downloadFile(blob, fileName) {
+                try {
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = fileName;
+                    link.style.display = 'none';
+                    document.body.appendChild(link);
+                    link.click();
+                    
+                    // Safari互換性: 少し遅延させて削除
+                    setTimeout(() => {
+                        document.body.removeChild(link);
+                        URL.revokeObjectURL(url);
+                    }, 100);
+
+                    alert('設定を保存しました！');
+                } catch (error) {
+                    console.error('Download error:', error);
+                    alert('保存に失敗しました。プライベートブラウズモードではダウンロード機能が制限される場合があります。');
+                }
+            }
+        }
+
+        // ファイルから設定を読み込む関数
+        // ===== グローバルエラーハンドラ =====
+        window.addEventListener('error', (event) => {
+            const errorMsg = `予期しないエラー: ${event.message} (行:${event.lineno}, 列:${event.colno})`;
+            const fullError = {
+                message: event.message,
+                lineno: event.lineno,
+                colno: event.colno,
+                filename: event.filename,
+                error: event.error,
+                timestamp: new Date().toISOString()
+            };
+            
+            debugLog('Global error caught', fullError);
+            console.error('Global error:', fullError);
+            
+            // エラーをログパネルに記録
+            if (!window.lastErrorTime || (Date.now() - window.lastErrorTime > 3000)) {
+                window.lastErrorTime = Date.now();
+            }
+        });
+
+        // ===== Promise拒否エラーハンドラ =====
+        window.addEventListener('unhandledrejection', (event) => {
+            const errorMsg = `Promise拒否エラー: ${event.reason?.message || String(event.reason)}`;
+            const fullError = {
+                reason: event.reason,
+                promise: event.promise,
+                timestamp: new Date().toISOString()
+            };
+            
+            debugLog('Unhandled Promise rejection', fullError);
+            console.error('Unhandled rejection:', fullError);
+            
+            event.preventDefault();  // ブラウザのデフォルトハンドリングを抑制
+        });
+
+        // ===== 診断パネル制御 =====
+        const diagnosticsPanel = document.getElementById('diagnosticsPanel');
+        
+        function updateDiagnostics() {
+            const browserInfo = getBrowserInfo();
+            const safariEnv = detectSafariEnvironment();
+            const safariDiag = getSafariDiagnostics();
+            const isPrivate = isPrivateBrowsingMode();
+            const hasAudioAPI = !!(window.AudioContext || window.webkitAudioContext);
+            const hasFileAPI = typeof FileReader !== 'undefined';
+            const isLocalFile = location.protocol === 'file:';
+
+            let browserStr = '不明';
+            if (browserInfo.isChrome) browserStr = 'Chrome';
+            else if (browserInfo.isFirefox) browserStr = 'Firefox';
+            else if (browserInfo.isSafari) browserStr = 'Safari';
+            else if (browserInfo.isEdge) browserStr = 'Edge';
+
+            // AudioContext情報
+            let audioContextInfo = 'AudioContext: ✗ 未初期化';
+            let gainNodeInfo = 'BGM Gain: ✗';
+            let seGainNodeInfo = 'SE Gain: ✗';
+            
+            if (audioContext) {
+                const state = audioContext.state;
+                audioContextInfo = `AudioContext: ✓ ${state} (SR: ${audioContext.sampleRate}Hz)`;
+                if (gainNode) {
+                    const bgmVol = (gainNode.gain.value * 100).toFixed(0);
+                    gainNodeInfo = `BGM Gain: ✓ ${bgmVol}%`;
+                }
+                if (seGainNode) {
+                    const seVol = (seGainNode.gain.value * 100).toFixed(0);
+                    seGainNodeInfo = `SE Gain: ✓ ${seVol}%`;
+                }
+            }
+
+            // BGM/SE情報
+            let bgmLoadedInfo = 'BGM: 0個';
+            let bgmLoadCount = 0;
+            if (bgmAudioInfos[0] && bgmAudioInfos[0].buffer) bgmLoadCount++;
+            if (bgmAudioInfos[1] && bgmAudioInfos[1].buffer) bgmLoadCount++;
+            bgmLoadedInfo = `BGM: ${bgmLoadCount}個`;
+
+            let seLoadedInfo = `SE: ${Object.keys(seFiles).length}個`;
+
+            // Safari/iPad環境情報
+            let safariInfo = `iPad Safari: ${safariDiag.isIPadSafari ? '✓ YES' : '✗ NO'}`;
+            let fileReaderInfo = `FileReader: ${safariDiag.canUseFileReader ? '✓ YES' : '✗ NO'}`;
+            let fetchInfo = `Fetch: ${safariDiag.canUseFetch ? '✓ YES' : '✗ NO'}`;
+            let blobInfo = `Blob URL: ${safariDiag.canUseObjectURL ? '✓ YES' : '✗ NO'}`;
+            let localFileWarning = isLocalFile ? ' ⚠️ ローカル実行' : '';
+
+            // 音声フォーマット対応状況
+            const formats = safariDiag.audioFormatsSupported;
+            let formatInfo = `フォーマット: MP3=${formats.mp3} WAV=${formats.wav} M4A=${formats.m4a} OGG=${formats.ogg} FLAC=${formats.flac}`;
+
+            // UI要素を更新
+            document.getElementById('diagBrowserInfo').textContent = 
+                `${browserStr}${browserInfo.isIOS ? ' (iPad)' : browserInfo.isAndroid ? ' (Android)' : ' (PC)'}${localFileWarning}`;
+            
+            document.getElementById('diagAudioAPI').textContent = 
+                `Audio: ${hasAudioAPI ? '✓' : '✗'} | File: ${hasFileAPI ? '✓' : '✗'} | Private: ${isPrivate ? '⚠' : '✓'}`;
+            
+            document.getElementById('diagPrivateMode').textContent = audioContextInfo;
+            
+            document.getElementById('diagFileAPI').textContent = `${gainNodeInfo} | ${seGainNodeInfo}`;
+            
+            document.getElementById('diagTimestamp').textContent = `${bgmLoadedInfo} | ${seLoadedInfo}`;
+
+            // 詳細情報パネル（存在する場合）
+            try {
+                const detailPanel = document.getElementById('detailDiagnostics');
+                if (detailPanel && detailPanel.style.display !== 'none') {
+                    // プロトコル情報
+                    const protocolWarning = isLocalFile ? '⚠️ ローカルファイル実行 (制限あり)' : `✓ ${location.protocol}`;
+                    
+                    // iOS制限情報
+                    let iosRestrictions = '';
+                    if (browserInfo.isIOS) {
+                        iosRestrictions = `
+                            <div style="margin-top: 8px; padding: 5px; background: #fff3cd; border-left: 3px solid #ffc107;">
+                                <strong>⚠️ iOS Safari 制限事項:</strong>
+                                <div>- AudioContext は最初のユーザー操作後に有効</div>
+                                <div>- 特定の音声形式が非対応（OGG, FLAC等）</div>
+                                <div>- メモリ制限（大きいファイルは失敗の可能性）</div>
+                            </div>
+                        `;
+                    }
+                    
+                    detailPanel.innerHTML = `
+                        <div style="font-size: 12px; line-height: 1.6;">
+                            <div><strong>【ブラウザ情報】</strong></div>
+                            <div>- ${browserStr}${browserInfo.isIOS ? ' (iPad)' : browserInfo.isAndroid ? ' (Android)' : ' (PC)'}</div>
+                            <div>- ${safariInfo}</div>
+                            <div>- プロトコル: ${protocolWarning}</div>
+                            <div>- プライベートモード: ${isPrivate ? '⚠ YES' : '✓ NO'}</div>
+                            
+                            <div style="margin-top: 8px;"><strong>【Safari 環境検出】</strong></div>
+                            <div>- isSafari: ${safariEnv.isSafari}</div>
+                            <div>- isIPad: ${safariEnv.isIPad}</div>
+                            <div>- isIOS: ${safariEnv.isIOS}</div>
+                            <div>- isChromeOnIOS: ${safariEnv.isChromeOnIOS}</div>
+                            
+                            <div style="margin-top: 8px;"><strong>【AudioContext】</strong></div>
+                            <div>- ${audioContextInfo}</div>
+                            <div>- ${gainNodeInfo}</div>
+                            <div>- ${seGainNodeInfo}</div>
+                            
+                            <div style="margin-top: 8px;"><strong>【API対応】</strong></div>
+                            <div>- ${fileReaderInfo}</div>
+                            <div>- ${fetchInfo}</div>
+                            <div>- ${blobInfo}</div>
+                            <div>- Web Audio API: ${safariDiag.canUseWebAudio ? '✓ YES' : '✗ NO'}</div>
+                            
+                            <div style="margin-top: 8px;"><strong>【音声フォーマット対応】</strong></div>
+                            <div>- MP3: ${formats.mp3}</div>
+                            <div>- WAV: ${formats.wav}</div>
+                            <div>- M4A/AAC: ${formats.m4a}/${formats.aac}</div>
+                            <div>- OGG: ${formats.ogg} ${formats.ogg === 'NO' ? '(Safari非対応)' : ''}</div>
+                            <div>- FLAC: ${formats.flac} ${formats.flac === 'NO' ? '(Safari非対応)' : ''}</div>
+                            ${iosRestrictions}
+                            
+                            <div style="margin-top: 8px;"><strong>【ロード状況】</strong></div>
+                            <div>- ${bgmLoadedInfo}</div>
+                            <div>- ${seLoadedInfo}</div>
+                        </div>
+                    `;
+                }
+            } catch (e) {}
+        }
+
+        // 診断パネルの表示/非表示切り替え（Ctrl+Shift+D で表示）
+        document.addEventListener('keydown', (event) => {
+            // Ctrl+Shift+D: 診断パネル
+            if (event.ctrlKey && event.shiftKey && event.key === 'D') {
+                event.preventDefault();
+                diagnosticsPanel.style.display = diagnosticsPanel.style.display === 'none' ? 'block' : 'none';
+                if (diagnosticsPanel.style.display === 'block') {
+                    updateDiagnostics();
+                    // 診断パネル表示中は定期的に更新
+                    if (!window.diagInterval) {
+                        window.diagInterval = setInterval(() => {
+                            if (diagnosticsPanel.style.display === 'block') {
+                                updateDiagnostics();
+                            }
+                        }, 1000);
+                    }
+                } else {
+                    if (window.diagInterval) {
+                        clearInterval(window.diagInterval);
+                        window.diagInterval = null;
+                    }
+                }
+            }
+            
+            // Ctrl+Shift+L: ログパネル
+            if (event.ctrlKey && event.shiftKey && event.key === 'L') {
+                event.preventDefault();
+                const logPanel = document.getElementById('debugLogPanel');
+                logPanel.style.display = logPanel.style.display === 'none' ? 'block' : 'none';
+            }
+            
+            // Ctrl+Shift+E: エラーパネル
+            if (event.ctrlKey && event.shiftKey && event.key === 'E') {
+                event.preventDefault();
+                const errorPanel = document.getElementById('debugErrorPanel');
+                errorPanel.style.display = errorPanel.style.display === 'none' ? 'block' : 'none';
+            }
+            
+            // Ctrl+Shift+A: 全ペイン
+            if (event.ctrlKey && event.shiftKey && event.key === 'A') {
+                event.preventDefault();
+                diagnosticsPanel.style.display = diagnosticsPanel.style.display === 'none' ? 'block' : 'none';
+                document.getElementById('debugLogPanel').style.display = diagnosticsPanel.style.display;
+                document.getElementById('debugErrorPanel').style.display = diagnosticsPanel.style.display;
+            }
+        });
+
+        // 初期診断実行
+        updateDiagnostics();
+
+        function loadAllPageData(file) {
+            const reader = new FileReader();
+            
+            reader.onerror = function(event) {
+                const msg = logError('ファイル読み込みエラー', reader.error);
+                alert('JSONファイルの読み込みに失敗しました。別のファイルをお試しください。');
+            };
+
+            reader.onload = function(event) {
+                try {
+                    const loadData = JSON.parse(event.target.result);
+                    debugLog('JSON parsed successfully', {pages: loadData.pages?.length});
+
+                    // バージョン確認
+                    if (loadData.version !== "1.0") {
+                        alert('対応していないファイル形式です。バージョン1.0のファイルを使用してください。');
+                        return;
+                    }
+
+                    // 全ページを初期化
+                    for (let i = 0; i < MAX_PAGES; i++) {
+                        pages[i] = {
+                            bgmFiles: [null, null],
+                            bgmFileObjects: [null, null],
+                            bgmNames: [null, null],
+                            bgmAudioInfos: [null, null],
+                            seFiles: {},
+                            seFileObjects: {},
+                            seNames: {},
+                            seEnabled: getDefaultSeEnabledState(),  // デフォルト値を統一
+                            bgmMemos: [null, null],
+                            seMemos: {},
+                            playingAudios: [],
+                            maxDuration: 0,
+                            timelineMaxDuration: 30,
+                            pixelsPerSecond: 0,
+                            bgmStartMinutes: 0,
+                            bgmStartSeconds: 0,
+                            bgmVolume: 100,     // 初期値
+                            bgmPitch: 100,      // 初期値
+                            seVolume: 100,      // 初期値
+                            sePitch: 100        // 初期値
+                        };
+                    }
+
+                    // ロードしたデータをページに反映
+                    if (loadData.pages && Array.isArray(loadData.pages)) {
+                        loadData.pages.forEach((pageData) => {
+                            if (pageData.pageNum >= 1 && pageData.pageNum <= MAX_PAGES) {
+                                const pageIndex = pageData.pageNum - 1;
+                                pages[pageIndex].bgmNames = pageData.bgmNames || [null, null];
+                                pages[pageIndex].seNames = pageData.seNames || {};
+                                pages[pageIndex].seEnabled = pageData.seEnabled || getDefaultSeEnabledState();
+                                pages[pageIndex].bgmMemos = pageData.bgmMemos || [null, null];
+                                pages[pageIndex].seMemos = pageData.seMemos || {};
+                                pages[pageIndex].bgmStartMinutes = pageData.bgmStartMinutes || 0;
+                                pages[pageIndex].bgmStartSeconds = pageData.bgmStartSeconds || 0;
+                                pages[pageIndex].bgmVolume = pageData.bgmVolume || 100;  // スライダー設定を復元
+                                pages[pageIndex].bgmPitch = pageData.bgmPitch || 100;    // スライダー設定を復元
+                                pages[pageIndex].seVolume = pageData.seVolume || 100;    // スライダー設定を復元
+                                pages[pageIndex].sePitch = pageData.sePitch || 100;      // スライダー設定を復元
+
+                                // BGM 音声データを復元
+                                if (pageData.bgmAudio) {
+                                    for (let j = 0; j < 2; j++) {
+                                        if (pageData.bgmAudio[j]) {
+                                            const arrayBuffer = base64ToArrayBuffer(pageData.bgmAudio[j]);
+                                            const blob = new Blob([arrayBuffer], { type: 'audio/mp3' });
+                                            pages[pageIndex].bgmFiles[j] = URL.createObjectURL(blob);
+                                            pages[pageIndex].bgmFileObjects[j] = new File([blob], pageData.bgmNames[j] || 'bgm' + j, { type: 'audio/mp3' });
+                                        }
+                                    }
+                                }
+
+                                // SE 音声データを復元
+                                if (pageData.seAudio) {
+                                    for (let seNum in pageData.seAudio) {
+                                        if (pageData.seAudio[seNum]) {
+                                            const arrayBuffer = base64ToArrayBuffer(pageData.seAudio[seNum]);
+                                            const blob = new Blob([arrayBuffer], { type: 'audio/mp3' });
+                                            pages[pageIndex].seFiles[seNum] = URL.createObjectURL(blob);
+                                            pages[pageIndex].seFileObjects[seNum] = new File([blob], pageData.seNames[seNum] || 'se' + seNum, { type: 'audio/mp3' });
+                                        }
+                                    }
+                                }
+                            }
+                        });
+                    }
+
+                    // 現在のページを再読み込み
+                    loadPageData(currentPage);
+                    generateUIButtons();
+
+                    // ボタンテキストを復元
+                    for (let i = 0; i < 2; i++) {
+                        if (bgmNames[i]) {
+                            const bgmButton = document.querySelector(`.bgm-button[data-bgm="${i}"]`);
+                            if (bgmButton) {
+                                bgmButton.textContent = bgmNames[i];
+                            }
+                        }
+                    }
+                    for (let seNum in seNames) {
+                        if (seNames[seNum]) {
+                            const seButton = document.querySelector(`.se-button[data-se="${seNum}"]`);
+                            if (seButton) {
+                                seButton.textContent = seNames[seNum];
+                            }
+                        }
+                    }
+
+                    generateRuler();
+
+                    // 全ページのBGM1を自動配置
+                    for (let i = 0; i < MAX_PAGES; i++) {
+                        if (pages[i].bgmFiles && pages[i].bgmFiles[0]) {
+                            pages[i].bgmAudioInfos = [null, null];
+                            pages[i].bgmAudioInfos[0] = null;  // 初期化
+                        }
+                    }
+
+                    // 保存されていたページに移動（BGM1も自動配置される）
+                    const targetPage = loadData.currentPage || 1;
+                    if (targetPage !== currentPage) {
+                        goToPage(targetPage);
+                    } else {
+                        // 現在のページの場合はBGM1を手動配置
+                        if (bgmFiles[0] && !bgmAudioInfos[0]) {
+                            bgmAudioInfos[0] = setupBGM(bgmFiles[0], bgmNames[0] || 'BGM 1', 0);
+                        }
+                    }
+
+                    alert('設定を読み込みました！');
+                    debugLog('All page data loaded successfully');
+                } catch (error) {
+                    const msg = logError('JSON解析エラー', error);
+                    alert('ファイルの読み込みに失敗しました。別のJSONファイルをお試しください。\n\n詳細: ' + error.message);
+                }
+            };
+
+            reader.readAsText(file);
+        }
+
+        // ページ初期化時に bgmFileObjects と seFileObjects を追加
+        for (let p = 0; p < MAX_PAGES; p++) {
+            if (!pages[p].bgmFileObjects) {
+                pages[p].bgmFileObjects = [null, null];
+            }
+            if (!pages[p].seFileObjects) {
+                pages[p].seFileObjects = {};
+            }
+            if (!pages[p].bgmMemos) {
+                pages[p].bgmMemos = [null, null];
+            }
+            if (!pages[p].seMemos) {
+                pages[p].seMemos = {};
+            }
+            if (pages[p].bgmStartMinutes === undefined) {
+                pages[p].bgmStartMinutes = 0;
+            }
+            if (pages[p].bgmStartSeconds === undefined) {
+                pages[p].bgmStartSeconds = 0;
+            }
+            if (pages[p].bgmVolume === undefined) {
+                pages[p].bgmVolume = 100;
+            }
+            if (pages[p].bgmPitch === undefined) {
+                pages[p].bgmPitch = 100;
+            }
+            if (pages[p].seVolume === undefined) {
+                pages[p].seVolume = 100;
+            }
+            if (pages[p].sePitch === undefined) {
+                pages[p].sePitch = 100;
+            }
+            if (pages[p].seEnabled === undefined) {
+                pages[p].seEnabled = getDefaultSeEnabledState();
+            }
+        }
+
+        // 初期設定
+        leftArrowBtn.disabled = true;
+        generateUIButtons();  // 初期化時にボタンを生成
+        setupControlButtonListeners();  // 制御ボタンのイベントリスナーを初期化時のみ登録
+        setupDragDropListeners();  // ドラッグ&ドロップ機能を初期化
+
+        // ===== iPad Safari対応: ページロード時の初期化 =====
+        
+        // ローカルファイル警告（file:// プロトコルの場合）
+        if (location.protocol === 'file:') {
+            const warning = '⚠️ ローカルファイル実行検出\n\n' +
+                'Safariでローカルファイルとして開かれた場合、一部の音声機能が制限される可能性があります。\n\n' +
+                'GitHub Pages等のHTTPS環境での実行を推奨します。';
+            debugLog('Local file detected - displaying warning', { protocol: location.protocol });
+            // ページロード後に警告を表示
+            setTimeout(() => {
+                alert(warning);
+            }, 1000);
+        }
+        
+        // Safari環境での初期診断
+        const safariEnv = detectSafariEnvironment();
+        const safariDiag = getSafariDiagnostics();
+        
+        if (safariEnv.isSafari || safariEnv.isIPad) {
+            debugLog('Safari/iPad環境を検出', {
+                isSafari: safariEnv.isSafari,
+                isIPad: safariEnv.isIPad,
+                isIOS: safariEnv.isIOS,
+                canUseWebAudio: safariDiag.canUseWebAudio
+            });
+            
+            // AudioContext対応確認
+            if (!safariDiag.canUseWebAudio) {
+                logError('Safari互換性警告', 'Web Audio APIがサポートされていません');
+                alert('このブラウザでは Web Audio API がサポートされていません。\n' +
+                    '最新のSafariまたは他のブラウザをお試しください。');
+            }
+        }
+        
+        // 音声フォーマット対応表示
+        const formats = checkAudioFormatsSupport();
+        debugLog('Audio format support detected', formats);
+        
+        // 非推奨フォーマット警告
+        if (formats.ogg === 'NO' && formats.flac === 'NO') {
+            debugLog('Non-recommended formats not supported - this is normal for Safari');
+        }
+
+        // BGMボタンを2個生成
+        // UI要素生成関数
+        function generateUIButtons() {
+            bgmGrid.innerHTML = '';
+            seGrid.innerHTML = '';
+
+            // BGMボタンを2個生成
+            for (let i = 0; i < 2; i++) {
+                const bgmItem = document.createElement('div');
+                bgmItem.className = 'sound-item';
+                bgmItem.innerHTML = `
+                    <input type="file" class="bgm-file" data-bgm="${i}" accept=".mp3,.wav,.m4a,.ogg,.aac,.flac,audio/mpeg,audio/wav,audio/mp4,audio/ogg,audio/flac,audio/aac">
+                    <button class="bgm-button" data-bgm="${i}">BGM ${i + 1} を選択</button>
+                    <button class="memo-button" data-bgm="${i}">📝 メモ</button>
+                `;
+                bgmGrid.appendChild(bgmItem);
+            }
+
+            // 効果音ボタンを1～12まで生成
+            for (let i = 1; i <= 12; i++) {
+                const seItem = document.createElement('div');
+                seItem.className = 'sound-item';
+                seItem.innerHTML = `
+                    <input type="file" class="se-file" data-se="${i}" accept=".mp3,.wav,.m4a,.ogg,.aac,.flac,audio/mpeg,audio/wav,audio/mp4,audio/ogg,audio/flac,audio/aac">
+                    <button class="se-button" data-se="${i}">効果音${i}</button>
+                    <button class="memo-button" data-se="${i}">📝 メモ</button>
+                    <div class="se-checkbox-container">
+                        <label>
+                            <input type="checkbox" class="se-checkbox" data-se="${i}">
+                            <span>${i}</span>
+                        </label>
+                    </div>
+                `;
+                seGrid.appendChild(seItem);
+            }
+
+            // すべて止めるボタンを効果音グリッドに追加
+            const stopAllItem = document.createElement('div');
+            stopAllItem.className = 'sound-item';
+            stopAllItem.innerHTML = `<button id="stopAllSeBtn">⏹ すべて止める</button>`;
+            seGrid.appendChild(stopAllItem);
+
+            // イベントリスナーを再設定
+            setupEventListeners();
+            
+            // ===== 新しく生成されたチェックボックスの状態を復元
+            restoreCheckboxStates();
+        }
+
+        function setupControlButtonListeners() {
+            if (controlButtonListenersInitialized) return;  // 既に登録済みの場合はスキップ
+            
+            // 再生ボタン
+            playBtn.addEventListener('click', async function() {
+                debugLog('Play button clicked - audio playback starting');
+                
+                // AudioContextの初期化と状態確認
+                if (!audioContext) {
+                    debugLog('AudioContext not initialized - initializing now');
+                    const result = initAudioContext();
+                    if (!result) {
+                        const msg = logError('再生エラー', 'AudioContextが初期化できません');
+                        alert(msg);
+                        return;
+                    }
+                }
+
+                // AudioContext再生成チェック
+                if (audioContext.state === 'closed') {
+                    debugLog('AudioContext is closed - recreating');
+                    gainNode = null;
+                    seGainNode = null;
+                    const result = initAudioContext();
+                    if (!result) {
+                        alert('音声システムの初期化に失敗しました。ページをリロードしてください。');
+                        return;
+                    }
+                }
+
+                // resume完全待機
+                const resumeSuccess = await ensureAudioContextRunning();
+                if (!resumeSuccess) {
+                    const explanation = getSafariErrorExplanation('InvalidStateError');
+                    alert(`${explanation.title}\\n\\n${explanation.solution}`);
+                    return;
+                }
+
+                let audioInfo = null;
+                let bgmIndex = 0;
+                if (bgmAudioInfos[0] && bgmAudioInfos[0].buffer) {
+                    audioInfo = bgmAudioInfos[0];
+                    bgmIndex = 0;
+                } else if (bgmAudioInfos[1] && bgmAudioInfos[1].buffer) {
+                    audioInfo = bgmAudioInfos[1];
+                    bgmIndex = 1;
+                }
+
+                if (!audioInfo || !audioInfo.buffer) {
+                    alert('再生するBGMが選択されていません');
+                    return;
+                }
+                
+                // 再生前環境チェック
+                const envCheck = checkPlaybackEnvironment(audioInfo);
+                if (!envCheck.canPlay) {
+                    const issueText = envCheck.issues.join('\\n- ');
+                    alert(`再生できません:\\n- ${issueText}`);
+                    debugLog('Playback environment check failed', envCheck);
+                    return;
+                }
+                
+                if (envCheck.warnings.length > 0) {
+                    debugLog('Playback warnings', envCheck.warnings);
+                }
+
+                debugLog('BGM selected for playback', {
+                    fileName: audioInfo.fileName,
+                    duration: audioInfo.buffer.duration,
+                    bgmIndex: bgmIndex,
+                    audioContextState: audioContext.state,
+                    sampleRate: audioContext.sampleRate
+                });
+
+                // 指定された開始時刻を計算（分と秒から秒に変換）
+                const startMinutes = parseInt(bgmStartMinutes.value) || 0;
+                const startSeconds = parseInt(bgmStartSeconds.value) || 0;
+                const startTime = startMinutes * 60 + startSeconds;
+
+                // 指定時刻がAudioBufferの長さ以内であることを確認
+                const clampedStartTime = Math.min(Math.max(0, startTime), audioInfo.buffer.duration);
+
+                debugLog('BGM playback parameters', {
+                    startTime: startTime,
+                    clampedStartTime: clampedStartTime,
+                    gainValue: gainNode.gain.value,
+                    sampleRate: audioContext.sampleRate
+                });
+
+                // AudioBufferSourceNodeを作成
+                const source = audioContext.createBufferSource();
+                source.buffer = audioInfo.buffer;
+                source.playbackRate.value = 1.0;  // 再生速度は常に1.0（固定）
+                const safeDetuneAmount = sanitizeDetuneValue(detuneAmount);  // detune安全化
+                source.detune.value = safeDetuneAmount;  // ピッチシフト（セント単位）
+
+                // 接続
+                source.connect(gainNode);
+
+                // 再生開始
+                audioInfo.sourceNode = source;
+                audioInfo.oscillatorNode = null;
+
+                // 指定時刻から再生開始
+                source.start(0, clampedStartTime);
+
+                audioInfo.startTime = audioContext.currentTime;
+                audioInfo.pauseTime = clampedStartTime;  // 指定時刻を記録
+                audioInfo.isPlaying = true;
+                audioInfo.autoLoopEnabled = true;  // 自動ループを有効化
+                
+                playingAudios.push(audioInfo);
+                playBtn.style.display = 'none';
+                pauseBtn.style.display = 'block';
+
+                // 終了コールバック
+                source.onended = function() {
+                    // 自動ループが有効な場合、再度再生
+                    if (audioInfo.autoLoopEnabled) {
+                        const newSource = audioContext.createBufferSource();
+                        newSource.buffer = audioInfo.buffer;
+                        newSource.playbackRate.value = 1.0;
+                        const safeLoopDetune = sanitizeDetuneValue(detuneAmount);  // detune安全化
+                        newSource.detune.value = safeLoopDetune;
+                        newSource.connect(gainNode);
+                        
+                        audioInfo.sourceNode = newSource;
+                        audioInfo.startTime = audioContext.currentTime;
+                        audioInfo.pauseTime = 0;  // ループ時は最初から再生
+                        audioInfo.isPlaying = true;
+                        
+                        newSource.start();
+                        newSource.onended = source.onended;  // 同じendedハンドラーを再設定
+                        
+                        debugLog('BGM auto-loop restarted', {fileName: audioInfo.fileName});
+                    } else {
+                        // 自動ループなし：通常の終了処理
+                        const index = playingAudios.indexOf(audioInfo);
+                        if (index > -1) {
+                            playingAudios.splice(index, 1);
+                        }
+                        playBtn.style.display = 'block';
+                        pauseBtn.style.display = 'none';
+                        bgmInfo.textContent = 'BGM: 準備中...';
+                        audioInfo.isPlaying = false;
+                        audioInfo.pauseTime = 0;
+                    }
+                };
+            });
+
+            // 一時停止ボタン
+            pauseBtn.addEventListener('click', function() {
+                for (let i = 0; i < 2; i++) {
+                    const audioInfo = bgmAudioInfos[i];
+                    if (audioInfo && audioInfo.isPlaying && audioInfo.sourceNode) {
+                        // 現在の再生時刻を記録
+                        const elapsedTime = audioContext.currentTime - audioInfo.startTime;
+                        audioInfo.pauseTime += elapsedTime;
+
+                        // 再生時間指定パネルに現在時刻を反映
+                        const totalSeconds = Math.round(audioInfo.pauseTime);
+                        const minutes = Math.floor(totalSeconds / 60);
+                        const seconds = totalSeconds % 60;
+                        bgmStartMinutes.value = minutes;
+                        bgmStartSeconds.value = seconds;
+
+                        // 再生停止
+                        try {
+                            audioInfo.sourceNode.stop();
+                        } catch (e) {}
+
+                        audioInfo.isPlaying = false;
+                        audioInfo.autoLoopEnabled = false;  // 一時停止時は自動ループを無効化
+                        const index = playingAudios.indexOf(audioInfo);
+                        if (index > -1) {
+                            playingAudios.splice(index, 1);
+                        }
+                    }
+                }
+                playBtn.style.display = 'block';
+                pauseBtn.style.display = 'none';
+            });
+
+            // 停止ボタン
+            stopBtn.addEventListener('click', function() {
+                // BGMを停止
+                for (let i = 0; i < 2; i++) {
+                    const audioInfo = bgmAudioInfos[i];
+                    if (audioInfo) {  // BGMが選択されているかどうかで判定
+                        if (audioInfo.isPlaying && audioInfo.sourceNode) {
+                            try {
+                                audioInfo.sourceNode.stop();
+                            } catch (e) {}
+                            audioInfo.isPlaying = false;
+                            audioInfo.autoLoopEnabled = false;  // 停止時は自動ループを無効化
+                            const index = playingAudios.indexOf(audioInfo);
+                            if (index > -1) {
+                                playingAudios.splice(index, 1);
+                            }
+                        }
+                        audioInfo.pauseTime = 0;
+                    }
+                }
+                
+                // playingAudios配列内のすべての音声（効果音など）を停止
+                const audiosCopy = [...playingAudios];
+                audiosCopy.forEach((audioInfo) => {
+                    if (audioInfo && audioInfo.isPlaying && audioInfo.sourceNode) {
+                        try {
+                            audioInfo.sourceNode.stop();
+                        } catch (e) {}
+                        
+                        audioInfo.isPlaying = false;
+                        const index = playingAudios.indexOf(audioInfo);
+                        if (index > -1) {
+                            playingAudios.splice(index, 1);
+                        }
+                        
+                        if (audioInfo.barElement) {
+                            audioInfo.barElement.remove();
+                        }
+                    }
+                });
+                
+                // タイマーをリセット
+                bgmStartMinutes.value = 0;
+                bgmStartSeconds.value = 0;
+                
+                playBtn.style.display = 'block';
+                pauseBtn.style.display = 'none';
+                bgmInfo.textContent = 'BGM: 準備中...';
+            });
+            
+            controlButtonListenersInitialized = true;
+        }
+
+        // ドラッグ&ドロップ機能を設定する関数
+        function setupDragDropListeners() {
+            const container = document.querySelector('.container');
+            
+            // dragover イベント：ドロップ可能な状態を表示
+            container.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                container.style.backgroundColor = 'rgba(102, 126, 234, 0.1)';
+                debugLog('Dragover detected');
+            });
+            
+            // dragleave イベント：ドロップ不可状態に戻す
+            container.addEventListener('dragleave', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (e.target === container) {
+                    container.style.backgroundColor = '';
+                }
+            });
+            
+            // drop イベント：ファイルを受け取る
+            container.addEventListener('drop', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                container.style.backgroundColor = '';
+                
+                const files = e.dataTransfer.files;
+                if (files.length === 0) return;
+                
+                debugLog('Files dropped', {fileCount: files.length});
+                
+                // ドロップされたファイルを処理
+                for (let file of files) {
+                    // 音声ファイルの形式を確認
+                    const validAudioFormats = ['audio/mpeg', 'audio/wav', 'audio/mp4', 'audio/ogg', 'audio/aac', 'audio/flac', 'application/octet-stream'];
+                    const isValidFormat = validAudioFormats.includes(file.type) || file.name.match(/\.(mp3|wav|m4a|ogg|aac|flac)$/i);
+                    
+                    if (!isValidFormat) {
+                        alert('サポートされていない音声形式です。MP3、WAV、M4A、OGGなどをお試しください。');
+                        debugLog('Invalid file format', {fileName: file.name, type: file.type});
+                        continue;
+                    }
+                    
+                    if (file.size > 100 * 1024 * 1024) {  // 100MB制限
+                        alert('ファイルが大きすぎます。100MB以下の音声ファイルを使用してください。');
+                        continue;
+                    }
+                    
+                    // BGMまたはSEかを判定（ファイル名に「bgm」「se」などが含まれているか）
+                    const fileName = file.name.toLowerCase();
+                    const isBGM = fileName.includes('bgm') || fileName.includes('background') || fileName.includes('music');
+                    const isSE = fileName.includes('se') || fileName.includes('effect') || fileName.includes('sound');
+                    
+                    if (isBGM) {
+                        // BGMファイルとして処理
+                        // BGM 1 のスロットが空いていれば使用、そうでなければBGM 2を使用
+                        let bgmIndex = 0;
+                        if (bgmFiles[0]) {
+                            bgmIndex = 1;
+                        }
+                        
+                        try {
+                            debugLog('Processing as BGM', {fileName: file.name, bgmIndex});
+                            
+                            bgmFiles[bgmIndex] = URL.createObjectURL(file);
+                            bgmFileObjects[bgmIndex] = file;
+                            bgmNames[bgmIndex] = file.name;
+                            const buttonElement = document.querySelector(`.bgm-button[data-bgm="${bgmIndex}"]`);
+                            if (buttonElement) {
+                                buttonElement.textContent = file.name;
+                            }
+                            
+                            // 他のBGMを停止
+                            for (let i = 0; i < 2; i++) {
+                                if (i !== bgmIndex && bgmAudioInfos[i]) {
+                                    if (bgmAudioInfos[i].sourceNode) {
+                                        try {
+                                            bgmAudioInfos[i].sourceNode.stop();
+                                        } catch (err) {}
+                                        const index = playingAudios.indexOf(bgmAudioInfos[i]);
+                                        if (index > -1) {
+                                            playingAudios.splice(index, 1);
+                                        }
+                                        bgmAudioInfos[i].isPlaying = false;
+                                    }
+                                    if (bgmAudioInfos[i].barElement) {
+                                        bgmAudioInfos[i].barElement.remove();
+                                    }
+                                    bgmAudioInfos[i] = null;
+                                }
+                            }
+                            
+                            // タイマーをリセット
+                            bgmStartMinutes.value = 0;
+                            bgmStartSeconds.value = 0;
+                            
+                            // BGMをセットアップ
+                            bgmAudioInfos[bgmIndex] = setupBGM(bgmFiles[bgmIndex], file.name, bgmIndex);
+                            alert(`BGM ${bgmIndex + 1} として「${file.name}」を読み込みました。`);
+                        } catch (error) {
+                            const msg = logError('ドラッグ&ドロップ BGM処理エラー', error);
+                            alert('BGMファイルの処理に失敗しました:\n' + error.message);
+                        }
+                    } else if (isSE) {
+                        // SE ファイルとして処理
+                        // SE 1～12 で空いているスロットを探す
+                        let seNum = null;
+                        for (let i = 1; i <= 12; i++) {
+                            if (!seFiles[i]) {
+                                seNum = i;
+                                break;
+                            }
+                        }
+                        
+                        if (seNum === null) {
+                            alert('SE スロットがいっぱいです。既存の SE ファイルを削除してからお試しください。');
+                            continue;
+                        }
+                        
+                        try {
+                            debugLog('Processing as SE', {fileName: file.name, seNum});
+                            
+                            seFiles[seNum] = URL.createObjectURL(file);
+                            seFileObjects[seNum] = file;
+                            seNames[seNum] = file.name;
+                            const buttonElement = document.querySelector(`.se-button[data-se="${seNum}"]`);
+                            if (buttonElement) {
+                                buttonElement.textContent = file.name;
+                            }
+                            
+                            alert(`効果音${seNum} として「${file.name}」を読み込みました。`);
+                        } catch (error) {
+                            const msg = logError('ドラッグ&ドロップ SE処理エラー', error);
+                            alert('SE ファイルの処理に失敗しました:\n' + error.message);
+                        }
+                    } else {
+                        // ファイル名から判定できない場合は BGM として処理
+                        alert('ファイル名に「bgm」または「se」を含めてください。BGM として処理します。');
+                        
+                        let bgmIndex = 0;
+                        if (bgmFiles[0]) {
+                            bgmIndex = 1;
+                        }
+                        
+                        try {
+                            debugLog('Processing as BGM (default)', {fileName: file.name, bgmIndex});
+                            
+                            bgmFiles[bgmIndex] = URL.createObjectURL(file);
+                            bgmFileObjects[bgmIndex] = file;
+                            bgmNames[bgmIndex] = file.name;
+                            const buttonElement = document.querySelector(`.bgm-button[data-bgm="${bgmIndex}"]`);
+                            if (buttonElement) {
+                                buttonElement.textContent = file.name;
+                            }
+                            
+                            // 他のBGMを停止
+                            for (let i = 0; i < 2; i++) {
+                                if (i !== bgmIndex && bgmAudioInfos[i]) {
+                                    if (bgmAudioInfos[i].sourceNode) {
+                                        try {
+                                            bgmAudioInfos[i].sourceNode.stop();
+                                        } catch (err) {}
+                                        const index = playingAudios.indexOf(bgmAudioInfos[i]);
+                                        if (index > -1) {
+                                            playingAudios.splice(index, 1);
+                                        }
+                                        bgmAudioInfos[i].isPlaying = false;
+                                    }
+                                    if (bgmAudioInfos[i].barElement) {
+                                        bgmAudioInfos[i].barElement.remove();
+                                    }
+                                    bgmAudioInfos[i] = null;
+                                }
+                            }
+                            
+                            // タイマーをリセット
+                            bgmStartMinutes.value = 0;
+                            bgmStartSeconds.value = 0;
+                            
+                            // BGMをセットアップ
+                            bgmAudioInfos[bgmIndex] = setupBGM(bgmFiles[bgmIndex], file.name, bgmIndex);
+                            alert(`BGM ${bgmIndex + 1} として「${file.name}」を読み込みました。`);
+                        } catch (error) {
+                            const msg = logError('ドラッグ&ドロップ BGM処理エラー', error);
+                            alert('BGMファイルの処理に失敗しました:\n' + error.message);
+                        }
+                    }
+                }
+            });
+            
+            debugLog('Drag and drop listeners initialized');
+        }
+
+        // イベントリスナー設定関数
+        function setupEventListeners() {
+            // メモボタン
+            let currentMemoType = null;
+            let currentMemoIndex = null;
+
+            document.querySelectorAll('.memo-button').forEach((button) => {
+                button.addEventListener('click', function() {
+                    const bgmIndex = this.dataset.bgm;
+                    const seNum = this.dataset.se;
+                    
+                    if (bgmIndex !== undefined) {
+                        currentMemoType = 'bgm';
+                        currentMemoIndex = parseInt(bgmIndex);
+                        document.getElementById('memoTitle').textContent = `BGM ${currentMemoIndex + 1} のメモ`;
+                    } else {
+                        currentMemoType = 'se';
+                        currentMemoIndex = seNum;
+                        document.getElementById('memoTitle').textContent = `効果音${currentMemoIndex} のメモ`;
+                    }
+                    
+                    document.getElementById('memoText').value = (currentMemoType === 'bgm' ? bgmMemos[currentMemoIndex] : seMemos[currentMemoIndex]) || '';
+                    document.getElementById('memoModal').classList.add('show');
+                });
+            });
+
+            // メモ保存ボタン
+            document.getElementById('memoSaveBtn').addEventListener('click', () => {
+                const memoText = document.getElementById('memoText').value;
+                if (currentMemoType === 'bgm') {
+                    bgmMemos[currentMemoIndex] = memoText;
+                } else {
+                    seMemos[currentMemoIndex] = memoText;
+                }
+                document.getElementById('memoModal').classList.remove('show');
+                currentMemoType = null;
+                currentMemoIndex = null;
+            });
+
+            // メモキャンセルボタン
+            document.getElementById('memoCancelBtn').addEventListener('click', () => {
+                document.getElementById('memoModal').classList.remove('show');
+                currentMemoType = null;
+                currentMemoIndex = null;
+            });
+
+            // メモモーダルの外側クリックで閉じる
+            document.getElementById('memoModal').addEventListener('click', (e) => {
+                if (e.target.id === 'memoModal') {
+                    document.getElementById('memoModal').style.display = 'none';
+                    currentMemoType = null;
+                    currentMemoIndex = null;
+                }
+            });
+
+            // BGMファイル入力
+            document.querySelectorAll('.bgm-file').forEach((input) => {
+                input.addEventListener('change', function(event) {
+                    const file = event.target.files[0];
+                    const bgmIndex = parseInt(this.dataset.bgm);
+                    
+                    if (!file) {
+                        debugLog('BGM file selection cancelled');
+                        return;
+                    }
+
+                    // ファイル形式チェック
+                    const fileExtension = file.name.split('.').pop().toLowerCase();
+                    const validFormats = ['mp3', 'wav', 'm4a', 'ogg', 'aac', 'flac'];
+                    const nonRecommendedFormats = ['ogg', 'flac'];
+                    
+                    if (!validFormats.includes(fileExtension)) {
+                        alert('サポートされていない音声形式です。MP3、WAV、M4A、OGGなどをお試しください。');
+                        this.value = '';
+                        return;
+                    }
+                    
+                    // Safari非推奨フォーマット警告
+                    if (detectSafariEnvironment().isSafari && nonRecommendedFormats.includes(fileExtension)) {
+                        const warning = `⚠️ 音声形式互換性警告\n\n` +
+                            `選択されたファイル形式 (${fileExtension.toUpperCase()}) は、` +
+                            `iPad Safari での再生がサポートされていない可能性があります。\n\n` +
+                            `推奨形式: MP3, WAV, M4A, AAC`;
+                        debugLog('Safari non-recommended format warning', { fileExtension, fileName: file.name });
+                        alert(warning);
+                    }
+                    
+                    // ファイルサイズチェック
+                    const fileSizeGB = file.size / (1024 * 1024 * 1024);
+                    if (file.size > 100 * 1024 * 1024) {  // 100MB制限
+                        alert('ファイルが大きすぎます。100MB以下の音声ファイルを使用してください。');
+                        this.value = '';
+                        return;
+                    }
+                    
+                    // ファイルサイズ警告 (50MB以上)
+                    if (file.size > 50 * 1024 * 1024) {
+                        debugLog('Large file warning', { fileName: file.name, sizeMB: (file.size / (1024 * 1024)).toFixed(1) });
+                        const shouldContinue = confirm(
+                            `⚠️ ファイルサイズが大きいです\n\n` +
+                            `ファイルサイズ: ${(file.size / (1024 * 1024)).toFixed(1)} MB\n\n` +
+                            `iPad や低スペック環境ではデコード失敗の可能性があります。\n\n` +
+                            `続けますか?`
+                        );
+                        if (!shouldContinue) {
+                            this.value = '';
+                            return;
+                        }
+                    }
+
+                    try {
+                        debugLog('BGM file selected', {bgmIndex, name: file.name, size: file.size, type: file.type, extension: fileExtension});
+                        
+                        bgmFiles[bgmIndex] = URL.createObjectURL(file);
+                        bgmFileObjects[bgmIndex] = file;  // File オブジェクトを保持
+                        bgmNames[bgmIndex] = file.name;
+                        const buttonElement = document.querySelector(`.bgm-button[data-bgm="${bgmIndex}"]`);
+                        buttonElement.textContent = file.name;
+                        
+                        // 選択されたファイルを自動でタイムラインに配置
+                        // 他のBGMを停止
+                        for (let i = 0; i < 2; i++) {
+                            if (i !== bgmIndex && bgmAudioInfos[i]) {
+                                // 再生中であれば停止
+                                if (bgmAudioInfos[i].sourceNode) {
+                                    try {
+                                        bgmAudioInfos[i].sourceNode.stop();
+                                    } catch (e) {}
+                                    bgmAudioInfos[i].autoLoopEnabled = false;  // BGM選択時は自動ループを無効化
+                                    const index = playingAudios.indexOf(bgmAudioInfos[i]);
+                                    if (index > -1) {
+                                        playingAudios.splice(index, 1);
+                                    }
+                                    bgmAudioInfos[i].isPlaying = false;
+                                }
+                                // タイムライン上のバーを削除
+                                if (bgmAudioInfos[i].barElement) {
+                                    bgmAudioInfos[i].barElement.remove();
+                                }
+                                bgmAudioInfos[i] = null;
+                            }
+                        }
+                        // タイマーをリセット
+                        bgmStartMinutes.value = 0;
+                        bgmStartSeconds.value = 0;
+                        bgmAudioInfos[bgmIndex] = setupBGM(bgmFiles[bgmIndex], file.name, bgmIndex);
+                    } catch (error) {
+                        const msg = logError('BGMファイル処理エラー', error);
+                        alert('音声ファイルの処理に失敗しました:\n' + error.message);
+                    }
+                });
+            });
+
+            // BGMボタン（選択）
+            document.querySelectorAll('.bgm-button').forEach((button) => {
+                button.addEventListener('click', function() {
+                    const bgmIndex = parseInt(this.dataset.bgm);
+                    const fileInput = document.querySelector(`.bgm-file[data-bgm="${bgmIndex}"]`);
+                    const fileUrl = bgmFiles[bgmIndex];
+                    
+                    try {
+                        // ファイルがまだ選択されていない場合はファイル選択ダイアログを開く
+                        if (!fileUrl) {
+                            if (fileInput) {
+                                debugLog('Opening file picker for BGM', {bgmIndex});
+                                fileInput.click();
+                            }
+                        } else {
+                            debugLog('BGM button clicked with existing file', {bgmIndex});
+                            // ファイルが既に選択されている場合は、BGMをセットアップ
+                            // すべてのBGMを停止（選択されたBGMも含む）
+                            for (let i = 0; i < 2; i++) {
+                                if (bgmAudioInfos[i]) {
+                                    // 再生中であれば停止
+                                    if (bgmAudioInfos[i].sourceNode) {
+                                        try {
+                                            bgmAudioInfos[i].sourceNode.stop();
+                                    } catch (e) {}
+                                    bgmAudioInfos[i].autoLoopEnabled = false;  // BGM選択時は自動ループを無効化
+                                    const index = playingAudios.indexOf(bgmAudioInfos[i]);
+                                    if (index > -1) {
+                                        playingAudios.splice(index, 1);
+                                    }
+                                    bgmAudioInfos[i].isPlaying = false;
+                                }
+                                // タイムライン上のバーを削除
+                                if (bgmAudioInfos[i].barElement) {
+                                    bgmAudioInfos[i].barElement.remove();
+                                }
+                                bgmAudioInfos[i] = null;
+                            }
+                        }
+                        // タイマーをリセット
+                        bgmStartMinutes.value = 0;
+                        bgmStartSeconds.value = 0;
+                        const audioInfo = setupBGM(fileUrl, this.textContent, bgmIndex);
+                        if (audioInfo) {
+                            bgmAudioInfos[bgmIndex] = audioInfo;
+                        } else {
+                            alert('BGMファイルのセットアップに失敗しました。ファイルが有効な音声ファイルか確認してください。');
+                        }
+                        }
+                    } catch (error) {
+                        const msg = logError('BGM処理エラー', error);
+                        alert('BGMの処理に失敗しました:\n' + error.message);
+                    }
+                });
+            });
+
+            // 効果音ファイル入力
+            document.querySelectorAll('.se-file').forEach((input) => {
+                input.addEventListener('change', function(event) {
+                    const file = event.target.files[0];
+                    const seNum = this.dataset.se;
+                    
+                    if (!file) {
+                        debugLog('SE file selection cancelled', {seNum});
+                        return;
+                    }
+
+                    // ファイル形式チェック
+                    const fileExtension = file.name.split('.').pop().toLowerCase();
+                    const validFormats = ['mp3', 'wav', 'm4a', 'ogg', 'aac', 'flac'];
+                    const nonRecommendedFormats = ['ogg', 'flac'];
+                    
+                    if (!validFormats.includes(fileExtension)) {
+                        alert('サポートされていない音声形式です。MP3、WAV、M4A、OGGなどをお試しください。');
+                        this.value = '';
+                        return;
+                    }
+                    
+                    // Safari非推奨フォーマット警告
+                    if (detectSafariEnvironment().isSafari && nonRecommendedFormats.includes(fileExtension)) {
+                        const warning = `⚠️ 音声形式互換性警告\n\n` +
+                            `選択されたファイル形式 (${fileExtension.toUpperCase()}) は、` +
+                            `iPad Safari での再生がサポートされていない可能性があります。\n\n` +
+                            `推奨形式: MP3, WAV, M4A, AAC`;
+                        debugLog('Safari non-recommended format warning (SE)', { fileExtension, fileName: file.name, seNum });
+                        alert(warning);
+                    }
+
+                    // ファイルサイズチェック
+                    if (file.size > 50 * 1024 * 1024) {  // 50MB制限
+                        alert('ファイルが大きすぎます。50MB以下の音声ファイルを使用してください。');
+                        this.value = '';
+                        return;
+                    }
+                    
+                    // ファイルサイズ警告 (30MB以上)
+                    if (file.size > 30 * 1024 * 1024) {
+                        debugLog('Large SE file warning', { fileName: file.name, sizeMB: (file.size / (1024 * 1024)).toFixed(1), seNum });
+                        const shouldContinue = confirm(
+                            `⚠️ 効果音ファイルサイズが大きいです\n\n` +
+                            `ファイルサイズ: ${(file.size / (1024 * 1024)).toFixed(1)} MB\n\n` +
+                            `iPad や低スペック環境ではデコード失敗の可能性があります。\n\n` +
+                            `続けますか?`
+                        );
+                        if (!shouldContinue) {
+                            this.value = '';
+                            return;
+                        }
+                    }
+
+                    try {
+                        debugLog('SE file selected', {seNum, name: file.name, size: file.size, type: file.type, extension: fileExtension});
+                        
+                        seFiles[seNum] = URL.createObjectURL(file);
+                        seFileObjects[seNum] = file;  // File オブジェクトを保持
+                        seNames[seNum] = file.name;
+                        const buttonElement = document.querySelector(`.se-button[data-se="${seNum}"]`);
+                        buttonElement.textContent = file.name;
+                    } catch (error) {
+                        const msg = logError('SE ファイル処理エラー', error);
+                        alert('音声ファイルの処理に失敗しました:\n' + error.message);
+                    }
+                });
+            });
+
+            // 効果音ボタン（再生）
+            document.querySelectorAll('.se-button').forEach((button) => {
+                button.addEventListener('click', function() {
+                    const seNum = this.dataset.se;
+                    const fileUrl = seFiles[seNum];
+                    
+                    if (!fileUrl) {
+                        alert('効果音ファイルが選択されていません。ファイルを選択してから再生してください。');
+                        return;
+                    }
+
+                    try {
+                        debugLog('Playing SE', {seNum, fileName: this.textContent});
+                        playAudio(fileUrl, this.textContent, 'se', seNum);
+                    } catch (error) {
+                        const msg = logError('SE再生エラー', error);
+                        alert('効果音の再生に失敗しました:\n' + error.message);
+                    }
+                });
+            });
+
+            // 効果音停止ボタン（すべての効果音を止める）
+            const stopAllSeBtnNew = document.getElementById('stopAllSeBtn');
+            if (stopAllSeBtnNew) {
+                stopAllSeBtnNew.addEventListener('click', function() {
+                    // playingAudios配列をコピーしてループ（配列の変更による問題を避けるため）
+                    const audiosCopy = [...playingAudios];
+                    audiosCopy.forEach((audioInfo) => {
+                        if (audioInfo && audioInfo.type === 'se' && audioInfo.isPlaying && audioInfo.sourceNode) {
+                            try {
+                                audioInfo.sourceNode.stop();
+                            } catch (e) {}
+                            
+                            audioInfo.isPlaying = false;
+                            const index = playingAudios.indexOf(audioInfo);
+                            if (index > -1) {
+                                playingAudios.splice(index, 1);
+                            }
+                            
+                            if (audioInfo.barElement) {
+                                audioInfo.barElement.remove();
+                            }
+                        }
+                    });
+                });
+            }
+
+            // BGM 音量スライダー
+            bgmVolumeSlider.addEventListener('input', (e) => {
+                bgmVolume = e.target.value / 100;
+                bgmVolumeValue.textContent = e.target.value;
+                if (gainNode) {
+                    gainNode.gain.value = bgmVolume;
+                }
+            });
+
+            // BGM 音程スライダー
+            bgmPitchSlider.addEventListener('input', (e) => {
+                const sliderValue = parseFloat(e.target.value);
+                bgmPitch = sliderValue / 100;
+                bgmPitchValue.textContent = e.target.value;
+                
+                // スライダー値 50～200 を cents -1200～+1200 に変換
+                // 50% → -1200 cents（1オクターブ下げる）
+                // 100% → 0 cents（通常）
+                // 200% → +1200 cents（1オクターブ上げる）
+                const bgmDetuneAmount = (sliderValue - 100) * 1200 / 100;
+                
+                // 現在再生中のBGMのdetuneを更新（再生速度は1.0で固定）
+                for (let i = 0; i < 2; i++) {
+                    const audioInfo = bgmAudioInfos[i];
+                    if (audioInfo && audioInfo.sourceNode && audioInfo.isPlaying) {
+                        audioInfo.sourceNode.detune.value = bgmDetuneAmount;
+                    }
+                }
+            });
+
+            // 時間指定パネルのバリデーション
+            bgmStartMinutes.addEventListener('change', (e) => {
+                let value = parseInt(e.target.value) || 0;
+                // 最小値は0、最大値は999
+                if (value < 0) value = 0;
+                if (value > 999) value = 999;
+                bgmStartMinutes.value = value;
+            });
+
+            bgmStartSeconds.addEventListener('change', (e) => {
+                let value = parseInt(e.target.value) || 0;
+                // 秒は0-59の範囲で制限
+                if (value < 0) value = 0;
+                if (value > 59) value = 59;
+                bgmStartSeconds.value = value;
+            });
+
+            // 秒の入力時にEnterキーで再生を開始
+            bgmStartSeconds.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    playBtn.click();
+                }
+            });
+
+            // 効果音 音量スライダー
+            seVolumeSlider.addEventListener('input', (e) => {
+                seVolume = e.target.value / 100;
+                seVolumeValue.textContent = e.target.value;
+                if (seGainNode) {
+                    seGainNode.gain.value = seVolume;
+                }
+                // チェックされている効果音のみに音量を適用
+                playingAudios.forEach((audioInfo) => {
+                    if (audioInfo.type === 'se' && audioInfo.sourceNode && audioInfo.isPlaying) {
+                        const seNum = audioInfo.seNum;
+                        if (seEnabled[seNum]) {
+                            audioInfo.sourceNode.gain.value = seVolume;
+                        }
+                    }
+                });
+            });
+
+            // 効果音 音程スライダー
+            sePitchSlider.addEventListener('input', (e) => {
+                const sliderValue = parseFloat(e.target.value);
+                sePitch = sliderValue / 100;
+                sePitchValue.textContent = e.target.value;
+                
+                // スライダー値 50～200 を cents -1200～+1200 に変換
+                // 50% → -1200 cents（1オクターブ下げる）
+                // 100% → 0 cents（通常）
+                // 200% → +1200 cents（1オクターブ上げる）
+                detuneAmount = (sliderValue - 100) * 1200 / 100;
+                
+                // チェックされている効果音のみに音程を更新（再生速度は1.0で固定）
+                playingAudios.forEach((audioInfo) => {
+                    if (audioInfo.type === 'se' && audioInfo.sourceNode && audioInfo.isPlaying) {
+                        const seNum = audioInfo.seNum;
+                        if (seEnabled[seNum]) {
+                            audioInfo.sourceNode.detune.value = detuneAmount;
+                        }
+                    }
+                });
+            });
+
+            // 効果音チェックボックス
+            document.querySelectorAll('.se-checkbox').forEach((checkbox) => {
+                checkbox.addEventListener('change', (e) => {
+                    const seNum = parseInt(e.target.dataset.se);
+                    seEnabled[seNum] = e.target.checked;
+                    
+                    // ===== チェック状態をページデータに即座に保存
+                    saveCheckStateToCurrentPage();
+                    
+                    // 再生中のこの効果音の音量と音程を更新
+                    playingAudios.forEach((audioInfo) => {
+                        if (audioInfo.type === 'se' && audioInfo.seNum === seNum && audioInfo.isPlaying) {
+                            if (e.target.checked) {
+                                // チェック入った：スライダー値を適用
+                                if (audioInfo.sourceNode && audioInfo.sourceNode.gain) {
+                                    audioInfo.sourceNode.gain.value = seVolume;
+                                    const detuneValue = (sePitchSlider.value - 100) * 1200 / 100;
+                                    audioInfo.sourceNode.detune.value = detuneValue;
+                                }
+                                if (audioInfo.audioElement) {
+                                    audioInfo.audioElement.volume = seVolume;
+                                }
+                            } else {
+                                // チェック外れた：100%に強制
+                                if (audioInfo.sourceNode && audioInfo.sourceNode.gain) {
+                                    audioInfo.sourceNode.gain.value = 1.0;
+                                    audioInfo.sourceNode.detune.value = 0;
+                                }
+                                if (audioInfo.audioElement) {
+                                    audioInfo.audioElement.volume = 1.0;
+                                }
+                            }
+                        }
+                    });
+                });
+            });
+        }
+
+        // BGMをセットアップする関数（タイムラインに表示、再生はしない）
+        function setupBGM(fileUrl, fileName, bgmIndex) {
+            debugLog('setupBGM called', {fileName, bgmIndex, urlType: fileUrl.startsWith('blob:') ? 'blob' : 'other'});
+            
+            // Web Audio Context初期化（一本化版）
+            if (!initAudioContext()) {
+                logError('setupBGM', 'AudioContext初期化失敗');
+                return null;
+            }
+
+            const audioInfo = {
+                sourceNode: null,
+                oscillatorNode: null,
+                buffer: null,
+                blobUrl: null,
+                startTime: null,
+                duration: null,
+                fileName: fileName,
+                type: 'bgm',
+                barElement: null,
+                bgmIndex: bgmIndex,
+                isSetup: true,
+                isPlaying: false,
+                pauseTime: 0,
+                audioData: null,
+                autoLoopEnabled: false,
+                playbackMethod: 'unknown'
+            };
+
+            // GitHub Pages対応: blob URLのハンドリングを改善
+            getBlobArrayBuffer(fileUrl)
+                .then(arrayBuffer => {
+                    debugLog('BGM ArrayBuffer取得成功', {
+                        fileName: fileName,
+                        size: arrayBuffer.byteLength,
+                        sizeKB: (arrayBuffer.byteLength / 1024).toFixed(2)
+                    });
+                    
+                    // デコード or フォールバック
+                    playAudioWithFallback(arrayBuffer, fileName, 'audio/mpeg')
+                        .then((result) => {
+                            debugLog('BGM playAudioWithFallback result', {
+                                fileName: fileName,
+                                method: result.method,
+                                status: result.status,
+                                duration: result.duration
+                            });
+                            
+                            audioInfo.buffer = result.buffer || null;
+                            audioInfo.blobUrl = result.blobUrl || null;
+                            audioInfo.playbackMethod = result.method;
+                            
+                            if (result.buffer) {
+                                audioInfo.duration = result.buffer.duration;
+                                audioBuffers[bgmIndex] = result.buffer;
+                                maxDuration = Math.max(maxDuration, audioInfo.duration);
+                                timelineMaxDuration = Math.max(30, Math.ceil(audioInfo.duration));
+                                generateRuler();
+                                createAudioBar(audioInfo);
+                                bgmInfo.textContent = `BGM: ${fileName} (${result.method}, 準備完了)`;
+                                debugLog('BGM setup complete (WebAudio)', {
+                                    fileName: fileName, 
+                                    duration: result.duration,
+                                    sampleRate: result.sampleRate,
+                                    channels: result.channels
+                                });
+                            } else if (result.blobUrl) {
+                                audioInfo.duration = 0;  // HTMLAudioではduration不明
+                                bgmInfo.textContent = `BGM: ${fileName} (HTMLAudioElement fallback, 準備完了)`;
+                                debugLog('BGM setup complete (HTMLAudio)', { fileName: fileName });
+                            }
+                        })
+                        .catch(error => {
+                            const explanation = getSafariErrorExplanation(error.name || 'UnknownError');
+                            logError(`BGMセットアップ失敗（${explanation.title}）`, error);
+                            bgmInfo.textContent = `BGM: ${explanation.title}`;
+                            alert(`${explanation.title}\\n\\n${explanation.solution}`);
+                        });
+                })
+                .catch(error => {
+                    const msg = logError('BGMファイル読込エラー', error);
+                    debugLog('BGM loading failure details', {
+                        fileName: fileName,
+                        urlType: fileUrl.startsWith('blob:') ? 'blob' : 'other',
+                        error: error.message
+                    });
+                    const explanation = getSafariErrorExplanation('SecurityError');
+                    bgmInfo.textContent = `BGM: ${explanation.title}`;
+                    alert(`${explanation.title}\\n\\n${explanation.solution}`);
+                });
+
+            updateTimeline();
+            return audioInfo;
+        }
+
+        // 音声を再生する関数
+        function playBGM(fileUrl, fileName, bgmIndex) {
+            const audio = document.createElement('audio');
+            audio.src = fileUrl;
+            audioContainer.appendChild(audio);
+
+            const audioInfo = {
+                element: audio,
+                startTime: null,
+                duration: null,
+                fileName: fileName,
+                type: 'bgm',
+                barElement: null,
+                bgmIndex: bgmIndex
+            };
+
+            // メタデータがロードされたら、タイムラインに追加
+            audio.addEventListener('loadedmetadata', function() {
+                audioInfo.duration = audio.duration;
+                maxDuration = Math.max(maxDuration, audio.duration);
+                // BGMの長さに合わせてタイムラインを更新（最小30秒を保証）
+                timelineMaxDuration = Math.max(30, Math.ceil(audio.duration));
+                generateRuler();
+                createAudioBar(audioInfo);
+            });
+
+            // 音声終了時にタイムラインから削除、最初に戻す
+            audio.addEventListener('ended', function() {
+                playingAudios.splice(playingAudios.indexOf(audioInfo), 1);
+                if (audioInfo.barElement) {
+                    audioInfo.barElement.remove();
+                }
+                audio.currentTime = 0;
+                audio.remove();
+                bgmAudioInfos[bgmIndex] = null;
+                playBtn.style.display = 'block';
+                pauseBtn.style.display = 'none';
+                bgmInfo.textContent = 'BGM: 準備中...';
+            });
+
+            playingAudios.push(audioInfo);
+            audio.play();
+            updateTimeline();
+            
+            return audioInfo;
+        }
+
+        // 音声を再生する関数
+        function playAudio(fileUrl, fileName, type, seNum = null) {
+            debugLog('playAudio called', {
+                fileName: fileName,
+                type: type,
+                seNum: seNum,
+                urlType: fileUrl.startsWith('blob:') ? 'blob' : 'other',
+                audioContextState: audioContext?.state
+            });
+            
+            // Web Audio Context初期化
+            if (!initAudioContext()) {
+                alert('オーディオ機能を初期化できませんでした。別のブラウザをお試しください。');
+                return null;
+            }
+
+            // 効果音ボタンが押された時点のBGM時刻を記録
+            let startBgmTime = 0;
+            for (let i = 0; i < 2; i++) {
+                const audioInfo = bgmAudioInfos[i];
+                if (audioInfo && audioInfo.isPlaying && audioInfo.sourceNode) {
+                    const elapsedTime = audioContext.currentTime - audioInfo.startTime;
+                    startBgmTime = audioInfo.pauseTime + elapsedTime;
+                    break;
+                }
+            }
+
+            const audioInfo = {
+                buffer: null,
+                blobUrl: null,
+                sourceNode: null,
+                oscillatorNode: null,
+                startTime: null,
+                duration: null,
+                fileName: fileName,
+                type: type,
+                seNum: seNum,
+                barElement: null,
+                startBgmTime: startBgmTime,
+                isPlaying: false,
+                playbackMethod: 'unknown'
+            };
+
+            // GitHub Pages対応: blob URLのハンドリングを改善
+            getBlobArrayBuffer(fileUrl)
+                .then(arrayBuffer => {
+                    debugLog('SE ArrayBuffer取得成功', {
+                        fileName: fileName,
+                        size: arrayBuffer.byteLength,
+                        sizeKB: (arrayBuffer.byteLength / 1024).toFixed(2)
+                    });
+                    
+                    // デコード or フォールバック再生
+                    playAudioWithFallback(arrayBuffer, fileName, type, 0, detuneAmount)
+                        .then((result) => {
+                            debugLog('playAudioWithFallback result', {
+                                fileName: fileName,
+                                method: result.method,
+                                status: result.status,
+                                duration: result.duration
+                            });
+                            
+                            audioInfo.buffer = result.buffer || null;
+                            audioInfo.blobUrl = result.blobUrl || null;
+                            audioInfo.playbackMethod = result.method;
+                            audioInfo.duration = result.duration || 0;
+                            maxDuration = Math.max(maxDuration, audioInfo.duration);
+                            
+                            // Web Audio 再生
+                            if (result.buffer && result.method === 'WebAudio') {
+                                playAudioBuffer(audioInfo);
+                            }
+                            // HTMLAudio フォールバック
+                            else if (result.blobUrl && result.method === 'HTMLAudioElement') {
+                                debugLog('Playing SE via HTMLAudioElement', {
+                                    fileName: fileName,
+                                    blobUrlLength: result.blobUrl.length
+                                });
+                                
+                                try {
+                                    const audio = new Audio();
+                                    audio.src = result.blobUrl;
+                                    
+                                    // チェック状態に応じて音量を決定
+                                    let effectiveVolume = seGainNode.gain.value;
+                                    if (info.seNum && !seEnabled[info.seNum]) {
+                                        // チェックが外れている場合は100%に強制
+                                        effectiveVolume = 1.0;
+                                    }
+                                    audio.volume = effectiveVolume;
+                                    audioContainer.appendChild(audio);
+                                    
+                                    // audioInfoにaudioElementを保存（チェック状態変更時の更新用）
+                                    info.audioElement = audio;
+                                    
+                                    audio.play().catch(err => {
+                                        logError('HTMLAudio play failed', err);
+                                        debugLog('HTMLAudio play error', {
+                                            fileName: fileName,
+                                            error: err.message
+                                        });
+                                    });
+                                    
+                                    audio.addEventListener('ended', () => {
+                                        debugLog('HTMLAudio ended', { fileName });
+                                        audio.remove();
+                                    });
+                                    
+                                    audioInfo.isPlaying = true;
+                                } catch (e) {
+                                    const explanation = getSafariErrorExplanation(e.name || 'UnknownError');
+                                    logError('HTMLAudio作成エラー', e);
+                                    alert(`${explanation.title}\\n\\n${explanation.solution}`);
+                                }
+                            }
+                        })
+                        .catch(error => {
+                            const explanation = getSafariErrorExplanation(error.name || 'UnknownError');
+                            logError(`SE再生失敗（${explanation.title}）`, error);
+                            alert(`${explanation.title}\\n\\n${explanation.solution}`);
+                        });
+                })
+                .catch(error => {
+                    const msg = logError('SEファイル読込エラー', error);
+                    debugLog('SE loading failure details', {
+                        fileName: fileName,
+                        urlType: fileUrl.startsWith('blob:') ? 'blob' : 'other',
+                        error: error.message
+                    });
+                    const explanation = getSafariErrorExplanation('SecurityError');  // CORS/ネットワークエラー
+                    alert(`${explanation.title}\\n\\n${explanation.solution}`);
+                });
+
+            playingAudios.push(audioInfo);
+            updateTimeline();
+
+            function playAudioBuffer(info) {
+                debugLog('playAudioBuffer called', {
+                    fileName: info.fileName,
+                    bufferDuration: info.buffer?.duration,
+                    audioContextState: audioContext?.state,
+                    playbackMethod: info.playbackMethod || 'WebAudio'
+                });
+                
+                async function doPlayAudio() {
+                    try {
+                        // AudioContext状態の最終確認
+                        if (!audioContext || audioContext.state === 'closed') {
+                            logError('playAudioBuffer', 'AudioContextが閉じられています');
+                            alert('音声再生の初期化に失敗しました。ページをリロードしてください。');
+                            return;
+                        }
+                        
+                        // resume待機（最大3秒）
+                        let resumeAttempts = 0;
+                        while (audioContext.state === 'suspended' && resumeAttempts < 30) {
+                            try {
+                                await audioContext.resume();
+                                debugLog('AudioContext resumed in playAudioBuffer', { 
+                                    attempt: resumeAttempts,
+                                    finalState: audioContext.state 
+                                });
+                            } catch (err) {
+                                resumeAttempts++;
+                                await new Promise(r => setTimeout(r, 100));  // 100ms待機
+                            }
+                        }
+                        
+                        // state === "running" までの最終確認
+                        if (audioContext.state !== 'running') {
+                            const explanation = getSafariErrorExplanation('InvalidStateError');
+                            logError('AudioContext state invalid', new Error(`state: ${audioContext.state}`));
+                            alert(`${explanation.title}\\n\\n${explanation.solution}`);
+                            debugLog('AudioContext state still not running', { 
+                                state: audioContext.state,
+                                sampleRate: audioContext.sampleRate
+                            });
+                            return;
+                        }
+                        
+                        debugLog('doPlayAudio executing', {
+                            fileName: info.fileName,
+                            seVolume: seVolume,
+                            seGainNodeValue: seGainNode?.gain.value,
+                            audioContextState: audioContext.state,
+                            audioContextCurrentTime: audioContext.currentTime
+                        });
+                        
+                        try {
+                            const source = audioContext.createBufferSource();
+                            source.buffer = info.buffer;
+                            
+                            source.playbackRate.value = 1.0;
+                            
+                            // チェック状態に応じてデチューン値を決定
+                            let effectiveDetune = detuneAmount;
+                            if (info.seNum && !seEnabled[info.seNum]) {
+                                // チェックが外れている場合は100%に強制
+                                effectiveDetune = 0;
+                            }
+                            
+                            // detune値の安全化
+                            const safeDetune = sanitizeDetuneValue(effectiveDetune);
+                            source.detune.value = safeDetune;
+
+                            source.connect(seGainNode);
+
+                            info.sourceNode = source;
+                            info.oscillatorNode = null;
+                            info.startTime = audioContext.currentTime;
+                            info.isPlaying = true;
+                            info.playbackMethod = 'WebAudio';
+
+                            debugLog('SE source started', {
+                                fileName: info.fileName,
+                                audioContextState: audioContext.state,
+                                seGainValue: seGainNode.gain.value,
+                                playbackRate: source.playbackRate.value,
+                                detune: safeDetune,
+                                currentTime: audioContext.currentTime
+                            });
+
+                            source.start();
+
+                            createAudioBar(info);
+                            startSEAnimation();  // アニメーション開始
+
+                            source.onended = function() {
+                                debugLog('SE playback ended', {fileName: info.fileName});
+                                const index = playingAudios.indexOf(info);
+                                if (index > -1) {
+                                    playingAudios.splice(index, 1);
+                                }
+                                if (info.barElement) {
+                                    info.barElement.remove();
+                                }
+                                info.isPlaying = false;
+                            };
+                        } catch (e) {
+                            const errorExp = getSafariErrorExplanation(e.name || 'UnknownError', e.code);
+                            const msg = logError(`SE再生エラー（${errorExp.title}）`, e);
+                            debugLog('doPlayAudio execute error', {
+                                error: e.message,
+                                errorName: e.name,
+                                errorCode: e.code,
+                                explanation: errorExp.description
+                            });
+                            alert(`${errorExp.title}\\n\\n${errorExp.solution}`);
+                        }
+                    } catch (e) {
+                        logError('playAudioBuffer async error', e);
+                        const errorExp = getSafariErrorExplanation(e.name || 'UnknownError', e.code);
+                        alert(`再生準備エラー\\n\\n${errorExp.solution}`);
+                    }
+                }
+                
+                // 非同期で再生開始
+                doPlayAudio();
+            }
+        }
+
+        // タイムラインにバーを作成
+        function createAudioBar(audioInfo) {
+            const bar = document.createElement('div');
+            bar.className = `audio-bar ${audioInfo.type} playing`;
+            bar.textContent = audioInfo.fileName;
+            
+            // 効果音の場合、アニメーション対応の配置
+            if (audioInfo.type === 'se' && audioContext) {
+                // SE開始時刻を記録（AudioContext.currentTime）
+                audioInfo.seStartTime = audioContext.currentTime;
+                
+                // 初期位置：SE開始時のAudioContext時刻に基づいて配置
+                bar.style.left = '0px';  // 開始位置は 0 から
+                
+                // 効果音の長さに応じてバーの幅を設定
+                if (audioInfo.duration) {
+                    const width = audioInfo.duration * pixelsPerSecond;
+                    bar.style.width = width + 'px';
+                }
+            }
+            
+            timelineCanvas.appendChild(bar);
+            audioInfo.barElement = bar;
+            
+            // SE再生時、アニメーションループを開始
+            if (audioInfo.type === 'se' && playingAudios.length > 0) {
+                updateSEBars();
+            }
+        }
+
+        // SE バーのリアルタイム更新関数
+        let seAnimationLoopActive = false;
+        function updateSEBars() {
+            // SE バー位置をリアルタイム更新
+            playingAudios.forEach(audio => {
+                if (audio.barElement && audio.seStartTime !== undefined && audioContext) {
+                    // 現在の再生進行時間（秒）
+                    const elapsedTime = audioContext.currentTime - audio.seStartTime;
+                    // タイムライン上の左位置（pixels）
+                    const left = Math.max(0, elapsedTime * pixelsPerSecond);
+                    audio.barElement.style.left = left + 'px';
+                }
+            });
+            
+            // SE再生中の場合、次フレームで更新
+            if (playingAudios.length > 0) {
+                seAnimationLoopActive = true;
+                requestAnimationFrame(updateSEBars);
+            } else {
+                seAnimationLoopActive = false;
+            }
+        }
+        
+        // SE アニメーション開始関数
+        function startSEAnimation() {
+            if (!seAnimationLoopActive && playingAudios.length > 0) {
+                seAnimationLoopActive = true;
+                updateSEBars();
+            }
+        }
+
+        // タイムラインを更新
+        // ===== 診断パネル更新（新規） =====
+        function updateDiagnosticPanel() {
+            const detailDiagnostics = document.getElementById('detailDiagnostics');
+            if (!detailDiagnostics) return;
+            
+            let content = '<strong>== 音声システム状態 ==</strong><br>';
+            
+            // AudioContext情報
+            if (audioContext) {
+                content += `AudioContext: ${audioContext.state} (${audioContext.sampleRate} Hz)<br>`;
+                content += `再生位置: ${audioContext.currentTime.toFixed(2)}s<br>`;
+            } else {
+                content += 'AudioContext: 未初期化<br>';
+            }
+            
+            // BGM情報
+            content += '<strong>== BGM ==</strong><br>';
+            for (let i = 0; i < 2; i++) {
+                const bgm = bgmAudioInfos[i];
+                if (bgm && bgm.buffer) {
+                    const playing = bgm.isPlaying ? '再生中' : '停止';
+                    const method = bgm.playbackMethod || 'WebAudio';
+                    content += `BGM${i + 1}: ${bgm.fileName} (${method}) - ${playing} - ${bgm.duration?.toFixed(1)}s<br>`;
+                } else if (bgm && bgm.blobUrl) {
+                    const method = bgm.playbackMethod || 'HTMLAudioElement';
+                    content += `BGM${i + 1}: ${bgm.fileName} (${method}) - 準備完了<br>`;
+                } else {
+                    content += `BGM${i + 1}: 未設定<br>`;
+                }
+            }
+            
+            // SE情報
+            content += '<strong>== SE（効果音）==</strong><br>';
+            if (playingAudios.length > 0) {
+                playingAudios.forEach((audio, idx) => {
+                    const playing = audio.isPlaying ? '再生中' : '準備中';
+                    const method = audio.playbackMethod || 'unknown';
+                    const detune = audio.buffer ? `(detune: ${sanitizeDetuneValue(detuneAmount)}c)` : '';
+                    content += `SE: ${audio.fileName} (${method}) - ${playing} ${detune}<br>`;
+                });
+            } else {
+                content += 'SE: なし<br>';
+            }
+            
+            // ブラウザ情報
+            content += '<strong>== 環境 ==</strong><br>';
+            const browserInfo = getBrowserInfo();
+            const safariEnv = detectSafariEnvironment();
+            content += `ブラウザ: ${browserInfo.browser}<br>`;
+            content += `Safari: ${safariEnv.isSafari ? 'Yes' : 'No'} | iPad: ${safariEnv.isIPad ? 'Yes' : 'No'}<br>`;
+            
+            detailDiagnostics.innerHTML = content;
+        }
+        
+        // 診断パネルの定期更新
+        setInterval(updateDiagnosticPanel, 500);
+
+        function updateTimeline() {
+            const containerWidth = timelineCanvas.parentElement.offsetWidth;
+
+            // プログレスバーは固定、ルーラーとキャンバスをスクロール
+            let activeBgm = null;
+            for (let i = 0; i < 2; i++) {
+                if (bgmAudioInfos[i] && bgmAudioInfos[i].duration && bgmAudioInfos[i].isPlaying) {
+                    activeBgm = bgmAudioInfos[i];
+                    break;
+                }
+            }
+
+            if (activeBgm) {
+                // AudioBufferSourceNodeの再生時刻を計算
+                const elapsedTime = audioContext.currentTime - activeBgm.startTime;
+                const currentTime = activeBgm.pauseTime + elapsedTime;
+                const translateX = containerWidth / 2 - (currentTime * pixelsPerSecond);
+                timelineRuler.style.transform = `translateX(${translateX}px)`;
+                timelineCanvas.style.transform = `translateX(${translateX}px)`;
+            } else {
+                const initialTranslateX = containerWidth / 2;
+                timelineRuler.style.transform = `translateX(${initialTranslateX}px)`;
+                timelineCanvas.style.transform = `translateX(${initialTranslateX}px)`;
+            }
+
+            // BGMとSEを異なるトラックに分ける
+            let bgmOffset = 5;      // BGMトラック（上）
+            let seYOffsets = {};    // SEトラック（下）：SE番号ごとに位置を管理
+
+            playingAudios.forEach((audioInfo) => {
+                if (audioInfo.barElement && audioInfo.duration) {
+                    const width = Math.max(1, audioInfo.duration * pixelsPerSecond);
+                    
+                    // BGMと効果音で位置計算を分ける
+                    let left = 0;
+                    let top = 5;  // デフォルト
+                    
+                    if (audioInfo.type === 'bgm') {
+                        // BGM：固定トラック上部
+                        top = bgmOffset;
+                    } else if (audioInfo.type === 'se') {
+                        // 効果音：記録された開始時刻を基準に位置を固定
+                        left = audioInfo.startBgmTime * pixelsPerSecond;
+                        // SEトラック：下部に配置
+                        top = 35;  // BGMの高さ（15-20px）+ マージン
+                    }
+
+                    audioInfo.barElement.style.width = width + 'px';
+                    audioInfo.barElement.style.left = left + 'px';
+                    audioInfo.barElement.style.top = top + 'px';
+                }
+            });
+
+            requestAnimationFrame(updateTimeline);
+        }
+
+        // 常時タイムラインを更新
+        function startAnimationLoop() {
+            updateTimeline();
+            requestAnimationFrame(startAnimationLoop);
+        }
+
+        startAnimationLoop();
+    </script>
+</body>
+</html>
